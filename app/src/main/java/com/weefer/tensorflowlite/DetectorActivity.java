@@ -366,32 +366,34 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
 
     private void showAddFaceDialog(Recognition rec) {
 
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        LayoutInflater inflater = getLayoutInflater();
-        View dialogLayout = inflater.inflate(R.layout.image_edit_dialog, null);
-        ImageView ivFace = dialogLayout.findViewById(R.id.dlg_image);
-        TextView tvTitle = dialogLayout.findViewById(R.id.dlg_title);
-        EditText etName = dialogLayout.findViewById(R.id.dlg_input);
+//        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+//        LayoutInflater inflater = getLayoutInflater();
+//        View dialogLayout = inflater.inflate(R.layout.image_edit_dialog, null);
+//        ImageView ivFace = dialogLayout.findViewById(R.id.dlg_image);
+//        TextView tvTitle = dialogLayout.findViewById(R.id.dlg_title);
+//        EditText etName = dialogLayout.findViewById(R.id.dlg_input);
+//
+//        tvTitle.setText("Add Face");
+//        ivFace.setImageBitmap(rec.getCrop());
+//        etName.setHint("Input name");
+//
+//        builder.setPositiveButton("OK", new DialogInterface.OnClickListener() {
+//            @Override
+//            public void onClick(DialogInterface dlg, int i) {
+//
+//                String name = etName.getText().toString();
+//                if (name.isEmpty()) {
+//                    return;
+//                }
+//                detector.register(name, rec);
+//                //knownFaces.put(name, rec);
+//                dlg.dismiss();
+//            }
+//        });
+//        builder.setView(dialogLayout);
+//        builder.show();
 
-        tvTitle.setText("Add Face");
-        ivFace.setImageBitmap(rec.getCrop());
-        etName.setHint("Input name");
-
-        builder.setPositiveButton("OK", new DialogInterface.OnClickListener() {
-            @Override
-            public void onClick(DialogInterface dlg, int i) {
-
-                String name = etName.getText().toString();
-                if (name.isEmpty()) {
-                    return;
-                }
-                detector.register(name, rec);
-                //knownFaces.put(name, rec);
-                dlg.dismiss();
-            }
-        });
-        builder.setView(dialogLayout);
-        builder.show();
+        detector.register("User", rec);
 
     }
 
@@ -406,7 +408,6 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
         if (mappedRecognitions.size() > 0) {
             LOGGER.i("Adding results");
             SimilarityClassifier.Recognition rec = mappedRecognitions.get(0);
-//            detector.register("User Haermes", rec);
             if (rec.getExtra() != null) {
                 showAddFaceDialog(rec);
             }
@@ -505,21 +506,21 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
                 Bitmap crop = null;
 
                 if (add) {
-                    crop = Bitmap.createBitmap(portraitBmp,
-                            (int) faceBB.left,
-                            (int) faceBB.top,
-                            (int) faceBB.width(),
-                            (int) faceBB.height());
+//                    crop = Bitmap.createBitmap(portraitBmp,
+//                            (int) faceBB.left,
+//                            (int) faceBB.top,
+//                            (int) faceBB.width(),
+//                            (int) faceBB.height());
 
-//                    AddPerson addPerson = new AddPerson();
-//                    Bitmap faceStorage = addPerson.add();
-//                    if (faceStorage != null)  {
-//                      crop = Bitmap.createBitmap(faceStorage,
-//                              (int) faceBB.left,
-//                              (int) faceBB.top,
-//                              (int) faceBB.width(),
-//                              (int) faceBB.height());
-//                    }
+                    AddPerson addPerson = new AddPerson();
+                    Bitmap faceStorage = addPerson.add();
+                    if (faceStorage != null)  {
+                      crop = Bitmap.createBitmap(faceStorage,
+                              (int) faceBB.left,
+                              (int) faceBB.top,
+                              (int) faceBB.width(),
+                              (int) faceBB.height());
+                    }
                 }
 
                 final long startTime = SystemClock.uptimeMillis();
