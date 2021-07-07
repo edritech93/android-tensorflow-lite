@@ -33,10 +33,8 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.SwitchCompat;
-import androidx.appcompat.widget.Toolbar;
 
 import com.google.android.material.bottomsheet.BottomSheetBehavior;
-import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.weefer.tensorflowlite.env.ImageUtils;
 import com.weefer.tensorflowlite.env.Logger;
 
@@ -76,8 +74,6 @@ public abstract class CameraActivity extends AppCompatActivity
     private SwitchCompat apiSwitchCompat;
     private TextView threadsTextView;
 
-    private FloatingActionButton btnSwitchCam;
-
     private static final String KEY_USE_FACING = "use_facing";
     private Integer useFacing = null;
     private String cameraId = null;
@@ -97,11 +93,7 @@ public abstract class CameraActivity extends AppCompatActivity
 //        useFacing = intent.getIntExtra(KEY_USE_FACING, CameraCharacteristics.LENS_FACING_BACK);
 
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-
         setContentView(R.layout.tfe_od_activity_camera);
-        Toolbar toolbar = findViewById(R.id.toolbar);
-        setSupportActionBar(toolbar);
-        getSupportActionBar().setDisplayShowTitleEnabled(false);
 
         if (hasPermission()) {
             setFragment();
@@ -117,8 +109,6 @@ public abstract class CameraActivity extends AppCompatActivity
         gestureLayout = findViewById(R.id.gesture_layout);
         sheetBehavior = BottomSheetBehavior.from(bottomSheetLayout);
         bottomSheetArrowImageView = findViewById(R.id.bottom_sheet_arrow);
-
-        btnSwitchCam = findViewById(R.id.fab_switchcam);
 
         ViewTreeObserver vto = gestureLayout.getViewTreeObserver();
         vto.addOnGlobalLayoutListener(
@@ -171,47 +161,8 @@ public abstract class CameraActivity extends AppCompatActivity
         inferenceTimeTextView = findViewById(R.id.inference_info);
 
         apiSwitchCompat.setOnCheckedChangeListener(this);
-
         plusImageView.setOnClickListener(this);
         minusImageView.setOnClickListener(this);
-
-        btnSwitchCam.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                onSwitchCamClick();
-            }
-        });
-
-    }
-
-    private void onSwitchCamClick() {
-
-        switchCamera();
-
-    }
-
-    public void switchCamera() {
-
-        Intent intent = getIntent();
-
-        if (useFacing == CameraCharacteristics.LENS_FACING_FRONT) {
-            useFacing = CameraCharacteristics.LENS_FACING_BACK;
-        } else {
-            useFacing = CameraCharacteristics.LENS_FACING_FRONT;
-        }
-
-        intent.putExtra(KEY_USE_FACING, useFacing);
-        intent.addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION);
-
-        restartWith(intent);
-
-    }
-
-    private void restartWith(Intent intent) {
-        finish();
-        overridePendingTransition(0, 0);
-        startActivity(intent);
-        overridePendingTransition(0, 0);
     }
 
     protected int[] getRgbBytes() {
