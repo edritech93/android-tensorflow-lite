@@ -1,7 +1,5 @@
 package com.weefer.tensorflowlite;
 
-import android.app.AlertDialog;
-import android.content.DialogInterface;
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.Config;
 import android.graphics.Canvas;
@@ -17,15 +15,9 @@ import android.os.Bundle;
 import android.os.SystemClock;
 import android.util.Size;
 import android.util.TypedValue;
-import android.view.LayoutInflater;
-import android.view.View;
-import android.widget.EditText;
-import android.widget.ImageView;
-import android.widget.TextView;
 import android.widget.Toast;
 
 import com.google.android.gms.tasks.OnSuccessListener;
-import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.mlkit.vision.common.InputImage;
 import com.google.mlkit.vision.face.Face;
 import com.google.mlkit.vision.face.FaceDetection;
@@ -37,7 +29,6 @@ import com.weefer.tensorflowlite.env.BorderedText;
 import com.weefer.tensorflowlite.env.ImageUtils;
 import com.weefer.tensorflowlite.env.Logger;
 import com.weefer.tensorflowlite.tflite.SimilarityClassifier;
-import com.weefer.tensorflowlite.tflite.SimilarityClassifier.Recognition;
 import com.weefer.tensorflowlite.tflite.TFLiteObjectDetectionAPIModel;
 import com.weefer.tensorflowlite.tracking.MultiBoxTracker;
 
@@ -45,26 +36,18 @@ import java.io.IOException;
 import java.util.LinkedList;
 import java.util.List;
 
-/**
- * An activity that uses a TensorFlowMultiBoxDetector and ObjectTracker to detect and then track
- * objects.
- */
 public class DetectorActivity extends CameraActivity implements OnImageAvailableListener {
     private static final Logger LOGGER = new Logger();
-
-
-    // FaceNet
-//  private static final int TF_OD_API_INPUT_SIZE = 160;
-//  private static final boolean TF_OD_API_IS_QUANTIZED = false;
-//  private static final String TF_OD_API_MODEL_FILE = "facenet.tflite";
-//  //private static final String TF_OD_API_MODEL_FILE = "facenet_hiroki.tflite";
+//    FaceNet
+//    private static final int TF_OD_API_INPUT_SIZE = 160;
+//    private static final boolean TF_OD_API_IS_QUANTIZED = false;
+//    private static final String TF_OD_API_MODEL_FILE = "facenet.tflite";
+//    private static final String TF_OD_API_MODEL_FILE = "facenet_hiroki.tflite";
 
     // MobileFaceNet
     private static final int TF_OD_API_INPUT_SIZE = 112;
     private static final boolean TF_OD_API_IS_QUANTIZED = false;
     private static final String TF_OD_API_MODEL_FILE = "mobile_face_net.tflite";
-
-
     private static final String TF_OD_API_LABELS_FILE = "file:///android_asset/labelmap.txt";
 
     private static final DetectorMode MODE = DetectorMode.TF_OD_API;
@@ -75,7 +58,6 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
     private static final Size DESIRED_PREVIEW_SIZE = new Size(640, 480);
     //private static final int CROP_SIZE = 320;
     //private static final Size CROP_SIZE = new Size(320, 320);
-
 
     private static final boolean SAVE_PREVIEW_BITMAP = false;
     private static final float TEXT_SIZE_DIP = 10;
@@ -91,43 +73,23 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
 
     private boolean computingDetection = false;
     private boolean addPending = false;
-    //private boolean adding = false;
 
     private long timestamp = 0;
-
     private Matrix frameToCropTransform;
     private Matrix cropToFrameTransform;
-    //private Matrix cropToPortraitTransform;
-
     private MultiBoxTracker tracker;
-
     private BorderedText borderedText;
-
     // Face detector
     private FaceDetector faceDetector;
-
     // here the preview image is drawn in portrait way
     private Bitmap portraitBmp = null;
     // here the face is cropped and drawn
     private Bitmap faceBmp = null;
 
-    private FloatingActionButton fabAdd;
-
-    //private HashMap<String, Classifier.Recognition> knownFaces = new HashMap<>();
-
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
-        fabAdd = findViewById(R.id.fab_add);
-        fabAdd.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                onAddClick();
-            }
-        });
-
+        addPending = true;
         // Real-time contour detection of multiple faces
         FaceDetectorOptions options =
                 new FaceDetectorOptions.Builder()
@@ -135,23 +97,9 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
                         .setContourMode(FaceDetectorOptions.LANDMARK_MODE_NONE)
                         .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_NONE)
                         .build();
-
-
         FaceDetector detector = FaceDetection.getClient(options);
-
         faceDetector = detector;
-
-
         //checkWritePermission();
-
-    }
-
-
-    private void onAddClick() {
-
-        addPending = true;
-        Toast.makeText(this, "click", Toast.LENGTH_LONG).show();
-
     }
 
     @Override
@@ -225,13 +173,11 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
         cropToFrameTransform = new Matrix();
         frameToCropTransform.invert(cropToFrameTransform);
 
-
         Matrix frameToPortraitTransform =
                 ImageUtils.getTransformationMatrix(
                         previewWidth, previewHeight,
                         targetW, targetH,
                         sensorOrientation, MAINTAIN_ASPECT);
-
 
         trackingOverlay = (OverlayView) findViewById(R.id.tracking_overlay);
         trackingOverlay.addCallback(
@@ -248,7 +194,6 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
         tracker.setFrameConfiguration(previewWidth, previewHeight, sensorOrientation);
     }
 
-
     @Override
     protected void processImage() {
         ++timestamp;
@@ -261,11 +206,8 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
             return;
         }
         computingDetection = true;
-
         LOGGER.i("Preparing image " + currTimestamp + " for detection in bg thread.");
-
         rgbFrameBitmap.setPixels(getRgbBytes(), 0, previewWidth, 0, 0, previewWidth, previewHeight);
-
         readyForNextImage();
 
         final Canvas canvas = new Canvas(croppedBitmap);
@@ -294,10 +236,7 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
                                     }
                                 });
                     }
-
                 });
-
-
     }
 
     @Override
@@ -326,7 +265,6 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
         runInBackground(() -> detector.setNumThreads(numThreads));
     }
 
-
     // Face Processing
     private Matrix createTransform(
             final int srcWidth,
@@ -340,10 +278,8 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
             if (applyRotation % 90 != 0) {
                 LOGGER.w("Rotation of %d % 90 != 0", applyRotation);
             }
-
             // Translate so center of image is at origin.
             matrix.postTranslate(-srcWidth / 2.0f, -srcHeight / 2.0f);
-
             // Rotate around origin.
             matrix.postRotate(applyRotation);
         }
@@ -355,65 +291,24 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
 //        final int inHeight = transpose ? srcWidth : srcHeight;
 
         if (applyRotation != 0) {
-
             // Translate back from origin centered reference to destination frame.
             matrix.postTranslate(dstWidth / 2.0f, dstHeight / 2.0f);
         }
-
         return matrix;
-
-    }
-
-    private void showAddFaceDialog(Recognition rec) {
-
-//        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-//        LayoutInflater inflater = getLayoutInflater();
-//        View dialogLayout = inflater.inflate(R.layout.image_edit_dialog, null);
-//        ImageView ivFace = dialogLayout.findViewById(R.id.dlg_image);
-//        TextView tvTitle = dialogLayout.findViewById(R.id.dlg_title);
-//        EditText etName = dialogLayout.findViewById(R.id.dlg_input);
-//
-//        tvTitle.setText("Add Face");
-//        ivFace.setImageBitmap(rec.getCrop());
-//        etName.setHint("Input name");
-//
-//        builder.setPositiveButton("OK", new DialogInterface.OnClickListener() {
-//            @Override
-//            public void onClick(DialogInterface dlg, int i) {
-//
-//                String name = etName.getText().toString();
-//                if (name.isEmpty()) {
-//                    return;
-//                }
-//                detector.register(name, rec);
-//                //knownFaces.put(name, rec);
-//                dlg.dismiss();
-//            }
-//        });
-//        builder.setView(dialogLayout);
-//        builder.show();
-
-        detector.register("User", rec);
-
     }
 
     private void updateResults(long currTimestamp, final List<SimilarityClassifier.Recognition> mappedRecognitions) {
-
         tracker.trackResults(mappedRecognitions, currTimestamp);
         trackingOverlay.postInvalidate();
         computingDetection = false;
         //adding = false;
-
-
         if (mappedRecognitions.size() > 0) {
             LOGGER.i("Adding results");
             SimilarityClassifier.Recognition rec = mappedRecognitions.get(0);
             if (rec.getExtra() != null) {
-                showAddFaceDialog(rec);
+                detector.register("User", rec);
             }
-
         }
-
         runOnUiThread(
                 new Runnable() {
                     @Override
@@ -423,11 +318,9 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
                         showInference(lastProcessingTimeMs + "ms");
                     }
                 });
-
     }
 
     private void onFacesDetected(long currTimestamp, List<Face> faces, boolean add) {
-
         cropCopyBitmap = Bitmap.createBitmap(croppedBitmap);
         final Canvas canvas = new Canvas(cropCopyBitmap);
         final Paint paint = new Paint();
@@ -445,9 +338,6 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
         final List<SimilarityClassifier.Recognition> mappedRecognitions =
                 new LinkedList<SimilarityClassifier.Recognition>();
 
-
-        //final List<Classifier.Recognition> results = new ArrayList<>();
-
         // Note this can be done only once
         int sourceW = rgbFrameBitmap.getWidth();
         int sourceH = rgbFrameBitmap.getHeight();
@@ -463,13 +353,10 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
 
         // draws the original image in portrait mode.
         cv.drawBitmap(rgbFrameBitmap, transform, null);
-
         final Canvas cvFace = new Canvas(faceBmp);
-
         boolean saved = false;
 
         for (Face face : faces) {
-
             LOGGER.i("FACE" + face.toString());
             LOGGER.i("Running detection on face " + currTimestamp);
             //results = detector.recognizeImage(croppedBitmap);
@@ -506,20 +393,14 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
                 Bitmap crop = null;
 
                 if (add) {
-//                    crop = Bitmap.createBitmap(portraitBmp,
-//                            (int) faceBB.left,
-//                            (int) faceBB.top,
-//                            (int) faceBB.width(),
-//                            (int) faceBB.height());
-
                     AddPerson addPerson = new AddPerson();
                     Bitmap faceStorage = addPerson.add();
-                    if (faceStorage != null)  {
-                      crop = Bitmap.createBitmap(faceStorage,
-                              (int) faceBB.left,
-                              (int) faceBB.top,
-                              (int) faceBB.width(),
-                              (int) faceBB.height());
+                    if (faceStorage != null) {
+                        crop = Bitmap.createBitmap(faceStorage,
+                                (int) faceBB.left,
+                                (int) faceBB.top,
+                                (int) faceBB.width(),
+                                (int) faceBB.height());
                     }
                 }
 
@@ -528,9 +409,7 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
                 lastProcessingTimeMs = SystemClock.uptimeMillis() - startTime;
 
                 if (resultsAux.size() > 0) {
-
                     SimilarityClassifier.Recognition result = resultsAux.get(0);
-
                     extra = result.getExtra();
 //          Object extra = result.getExtra();
 //          if (extra != null) {
@@ -548,11 +427,9 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
                             color = Color.RED;
                         }
                     }
-
                 }
 
                 if (getCameraFacing() == CameraCharacteristics.LENS_FACING_FRONT) {
-
                     // camera is frontal so the image is flipped horizontally
                     // flips horizontally
                     Matrix flip = new Matrix();
@@ -563,31 +440,17 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
                     }
                     //flip.postScale(1, -1, targetW / 2.0f, targetH / 2.0f);
                     flip.mapRect(boundingBox);
-
                 }
 
                 final SimilarityClassifier.Recognition result = new SimilarityClassifier.Recognition(
                         "0", label, confidence, boundingBox);
-
                 result.setColor(color);
                 result.setLocation(boundingBox);
                 result.setExtra(extra);
                 result.setCrop(crop);
                 mappedRecognitions.add(result);
-
             }
-
-
         }
-
-        //    if (saved) {
-//      lastSaved = System.currentTimeMillis();
-//    }
-
         updateResults(currTimestamp, mappedRecognitions);
-
-
     }
-
-
 }
