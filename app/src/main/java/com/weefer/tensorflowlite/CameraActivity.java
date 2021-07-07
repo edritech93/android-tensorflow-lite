@@ -52,6 +52,7 @@ public abstract class CameraActivity extends AppCompatActivity
     private static final int PERMISSIONS_REQUEST = 1;
 
     private static final String PERMISSION_CAMERA = Manifest.permission.CAMERA;
+    private static final String PERMISSION_READ_STORAGE = Manifest.permission.READ_EXTERNAL_STORAGE;
     protected int previewWidth = 0;
     protected int previewHeight = 0;
     private boolean debug = false;
@@ -92,8 +93,8 @@ public abstract class CameraActivity extends AppCompatActivity
         super.onCreate(null);
 
         Intent intent = getIntent();
-        //useFacing = intent.getIntExtra(KEY_USE_FACING, CameraCharacteristics.LENS_FACING_FRONT);
-        useFacing = intent.getIntExtra(KEY_USE_FACING, CameraCharacteristics.LENS_FACING_BACK);
+        useFacing = intent.getIntExtra(KEY_USE_FACING, CameraCharacteristics.LENS_FACING_FRONT);
+//        useFacing = intent.getIntExtra(KEY_USE_FACING, CameraCharacteristics.LENS_FACING_BACK);
 
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
@@ -419,7 +420,8 @@ public abstract class CameraActivity extends AppCompatActivity
 
     private boolean hasPermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            return checkSelfPermission(PERMISSION_CAMERA) == PackageManager.PERMISSION_GRANTED;
+            return (checkSelfPermission(PERMISSION_CAMERA) == PackageManager.PERMISSION_GRANTED) &&
+                    (checkSelfPermission(PERMISSION_READ_STORAGE) == PackageManager.PERMISSION_GRANTED);
         } else {
             return true;
         }
@@ -427,14 +429,15 @@ public abstract class CameraActivity extends AppCompatActivity
 
     private void requestPermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            if (shouldShowRequestPermissionRationale(PERMISSION_CAMERA)) {
+            if (shouldShowRequestPermissionRationale(PERMISSION_CAMERA) &&
+                    shouldShowRequestPermissionRationale(PERMISSION_READ_STORAGE)) {
                 Toast.makeText(
                         CameraActivity.this,
-                        "Camera permission is required for this demo",
+                        "Camera and Storage permission is required for this Apps",
                         Toast.LENGTH_LONG)
                         .show();
             }
-            requestPermissions(new String[]{PERMISSION_CAMERA}, PERMISSIONS_REQUEST);
+            requestPermissions(new String[]{PERMISSION_CAMERA, PERMISSION_READ_STORAGE}, PERMISSIONS_REQUEST);
         }
     }
 
