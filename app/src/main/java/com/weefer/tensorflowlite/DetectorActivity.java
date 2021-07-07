@@ -36,7 +36,7 @@ import java.io.IOException;
 import java.util.LinkedList;
 import java.util.List;
 
-public class DetectorActivity extends CameraActivity implements OnImageAvailableListener {
+public class DetectorActivity extends CameraActivity {
     private static final Logger LOGGER = new Logger();
 //    FaceNet
 //    private static final int TF_OD_API_INPUT_SIZE = 160;
@@ -255,16 +255,6 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
         TF_OD_API;
     }
 
-    @Override
-    protected void setUseNNAPI(final boolean isChecked) {
-        runInBackground(() -> detector.setUseNNAPI(isChecked));
-    }
-
-    @Override
-    protected void setNumThreads(final int numThreads) {
-        runInBackground(() -> detector.setNumThreads(numThreads));
-    }
-
     // Face Processing
     private Matrix createTransform(
             final int srcWidth,
@@ -309,15 +299,6 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
                 detector.register("User", rec);
             }
         }
-        runOnUiThread(
-                new Runnable() {
-                    @Override
-                    public void run() {
-                        showFrameInfo(previewWidth + "x" + previewHeight);
-                        showCropInfo(croppedBitmap.getWidth() + "x" + croppedBitmap.getHeight());
-                        showInference(lastProcessingTimeMs + "ms");
-                    }
-                });
     }
 
     private void onFacesDetected(long currTimestamp, List<Face> faces, boolean add) {
