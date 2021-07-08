@@ -2,6 +2,7 @@ package com.weefer.tensorflowlite;
 
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.Config;
+import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Matrix;
@@ -13,8 +14,10 @@ import android.hardware.camera2.CameraCharacteristics;
 import android.media.ImageReader.OnImageAvailableListener;
 import android.os.Bundle;
 import android.os.SystemClock;
+import android.util.Log;
 import android.util.Size;
 import android.util.TypedValue;
+import android.widget.ImageView;
 import android.widget.Toast;
 
 import com.google.android.gms.tasks.OnSuccessListener;
@@ -32,6 +35,7 @@ import com.weefer.tensorflowlite.tflite.SimilarityClassifier;
 import com.weefer.tensorflowlite.tflite.TFLiteObjectDetectionAPIModel;
 import com.weefer.tensorflowlite.tracking.MultiBoxTracker;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.LinkedList;
 import java.util.List;
@@ -89,7 +93,7 @@ public class DetectorActivity extends CameraActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        addPending = true;
+//        addPending = true;
         // Real-time contour detection of multiple faces
         FaceDetectorOptions options =
                 new FaceDetectorOptions.Builder()
@@ -99,7 +103,71 @@ public class DetectorActivity extends CameraActivity {
                         .build();
         FaceDetector detector = FaceDetection.getClient(options);
         faceDetector = detector;
-        //checkWritePermission();
+    }
+
+    private boolean isLoadImageStorage = true;
+
+    private void addImageStorage() {
+        try {
+            File imgFile = new File("/sdcard/Download/image_test.jpg");
+            if (imgFile.exists() && isLoadImageStorage) {
+                FaceDetectorOptions options =
+                        new FaceDetectorOptions.Builder()
+                                .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
+                                .setContourMode(FaceDetectorOptions.LANDMARK_MODE_NONE)
+                                .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_NONE)
+                                .build();
+                FaceDetector imageDetector = FaceDetection.getClient(options);
+                Bitmap bInput = BitmapFactory.decodeFile(imgFile.getAbsolutePath());
+                float degrees = 270;
+                Matrix matrix = new Matrix();
+                matrix.setRotate(degrees);
+                bInput = Bitmap.createScaledBitmap(bInput, TF_OD_API_INPUT_SIZE, TF_OD_API_INPUT_SIZE, true);
+                Bitmap bOutput = Bitmap.createBitmap(bInput, 0, 0, TF_OD_API_INPUT_SIZE, TF_OD_API_INPUT_SIZE, matrix, true);
+
+                InputImage image = InputImage.fromBitmap(bOutput, 0);
+                imageDetector
+                        .process(image)
+                        .addOnSuccessListener(new OnSuccessListener<List<Face>>() {
+                            @Override
+                            public void onSuccess(List<Face> faces) {
+                                if (faces.size() > 0) {
+                                    Face face = faces.get(0);
+                                    final RectF boundingBox = new RectF(face.getBoundingBox());
+                                    if (boundingBox != null) {
+                                        RectF faceBB = new RectF(boundingBox);
+                                        Bitmap crop = Bitmap.createBitmap(bOutput,
+                                                (int) faceBB.left,
+                                                (int) faceBB.top,
+                                                (int) faceBB.width(),
+                                                (int) faceBB.height());
+
+                                        ImageView imgStorage = findViewById(R.id.img_storage);
+                                        imgStorage.setImageBitmap(crop);
+//                                        final long startTime = SystemClock.uptimeMillis();
+//                                        resultsAux = detector.recognizeImage(crop, true);
+//                                        lastProcessingTimeMs = SystemClock.uptimeMillis() - startTime;
+//                                        final SimilarityClassifier.Recognition result = new SimilarityClassifier.Recognition(
+//                                                "0", "Yudi", 0.0f, boundingBox);
+//                                        result.setColor(Color.YELLOW);
+//                                        result.setLocation(boundingBox);
+//                                        result.setExtra(null);
+//                                        result.setCrop(crop);
+//
+//                                        tracker.trackResults(resultsAux, timestamp);
+//                                        trackingOverlay.postInvalidate();
+//                                        computingDetection = false;
+//                                        //adding = false;
+//                                        detector.register("User", resultsAux.get(0));
+                                        isLoadImageStorage = false;
+                                    }
+                                }
+                            }
+                        });
+            }
+        } catch (Exception e) {
+            Log.e("imageDetector", e.toString());
+        }
     }
 
     @Override
@@ -154,9 +222,23 @@ public class DetectorActivity extends CameraActivity {
         int cropH = (int) (targetH / 2.0);
 
         croppedBitmap = Bitmap.createBitmap(cropW, cropH, Config.ARGB_8888);
-
         portraitBmp = Bitmap.createBitmap(targetW, targetH, Config.ARGB_8888);
         faceBmp = Bitmap.createBitmap(TF_OD_API_INPUT_SIZE, TF_OD_API_INPUT_SIZE, Config.ARGB_8888);
+
+        addImageStorage();
+//        File imgFile = new File("/sdcard/Download/image_test.jpg");
+//        if (imgFile.exists()) {
+////            BitmapFactory.Options bmOptions = new BitmapFactory.Options();
+////            bmOptions.inPreferredConfig = Bitmap.Config.ARGB_8888;
+////            Bitmap bitmap = BitmapFactory.decodeFile(imgFile.getAbsolutePath(), bmOptions);
+////            bitmap = Bitmap.createScaledBitmap(bitmap, TF_OD_API_INPUT_SIZE, TF_OD_API_INPUT_SIZE, true);
+////            faceBmp = bitmap;
+//
+//            Bitmap bitmap = BitmapFactory.decodeFile(imgFile.getAbsolutePath());
+//            ImageView imgStorage = findViewById(R.id.img_storage);
+//            imgStorage.setImageBitmap(bitmap);
+//            addPending = true;
+//        }
 
         frameToCropTransform =
                 ImageUtils.getTransformationMatrix(
@@ -231,8 +313,10 @@ public class DetectorActivity extends CameraActivity {
                                 new Runnable() {
                                     @Override
                                     public void run() {
-                                        onFacesDetected(currTimestamp, faces, addPending);
-                                        addPending = false;
+                                        if (!isLoadImageStorage) {
+                                            onFacesDetected(currTimestamp, faces, addPending);
+                                            addPending = false;
+                                        }
                                     }
                                 });
                     }
@@ -374,15 +458,11 @@ public class DetectorActivity extends CameraActivity {
                 Bitmap crop = null;
 
                 if (add) {
-                    AddPerson addPerson = new AddPerson();
-                    Bitmap faceStorage = addPerson.add();
-                    if (faceStorage != null) {
-                        crop = Bitmap.createBitmap(faceStorage,
-                                (int) faceBB.left,
-                                (int) faceBB.top,
-                                (int) faceBB.width(),
-                                (int) faceBB.height());
-                    }
+                    crop = Bitmap.createBitmap(portraitBmp,
+                            (int) faceBB.left,
+                            (int) faceBB.top,
+                            (int) faceBB.width(),
+                            (int) faceBB.height());
                 }
 
                 final long startTime = SystemClock.uptimeMillis();
@@ -398,8 +478,8 @@ public class DetectorActivity extends CameraActivity {
 //          }
 
                     float conf = result.getDistance();
+                    Log.e("conf-1", String.valueOf(conf));
                     if (conf < 1.0f) {
-
                         confidence = conf;
                         label = result.getTitle();
                         if (result.getId().equals("0")) {
