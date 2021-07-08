@@ -19,14 +19,12 @@ import android.util.TypedValue;
 import android.widget.ImageView;
 import android.widget.Toast;
 
-import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.mlkit.vision.common.InputImage;
 import com.google.mlkit.vision.face.Face;
 import com.google.mlkit.vision.face.FaceDetection;
 import com.google.mlkit.vision.face.FaceDetector;
 import com.google.mlkit.vision.face.FaceDetectorOptions;
 import com.weefer.tensorflowlite.customview.OverlayView;
-import com.weefer.tensorflowlite.customview.OverlayView.DrawCallback;
 import com.weefer.tensorflowlite.env.BorderedText;
 import com.weefer.tensorflowlite.env.ImageUtils;
 import com.weefer.tensorflowlite.tflite.SimilarityClassifier;
@@ -44,12 +42,8 @@ public class DetectorActivity extends CameraActivity {
     private static final String TF_OD_API_MODEL_FILE = "mobile_face_net.tflite";
     private static final String TF_OD_API_LABELS_FILE = "file:///android_asset/labelmap.txt";
 
-    private static final DetectorMode MODE = DetectorMode.TF_OD_API;
-    private static final float MINIMUM_CONFIDENCE_TF_OD_API = 0.5f;
     private static final boolean MAINTAIN_ASPECT = false;
-
     private static final Size DESIRED_PREVIEW_SIZE = new Size(640, 480);
-
     private static final boolean SAVE_PREVIEW_BITMAP = false;
     private static final float TEXT_SIZE_DIP = 10;
     private OverlayView trackingOverlay;
@@ -104,22 +98,20 @@ public class DetectorActivity extends CameraActivity {
                 InputImage image = InputImage.fromBitmap(bOutput, 0);
                 imageDetector
                         .process(image)
-                        .addOnSuccessListener(new OnSuccessListener<List<Face>>() {
-                            @Override
-                            public void onSuccess(List<Face> faces) {
-                                if (faces.size() > 0) {
-                                    Face face = faces.get(0);
-                                    final RectF boundingBox = new RectF(face.getBoundingBox());
-                                    if (boundingBox != null) {
-                                        RectF faceBB = new RectF(boundingBox);
-                                        Bitmap crop = Bitmap.createBitmap(bOutput,
-                                                (int) faceBB.left,
-                                                (int) faceBB.top,
-                                                (int) faceBB.width(),
-                                                (int) faceBB.height());
+                        .addOnSuccessListener(faces -> {
+                            if (faces.size() > 0) {
+                                Face face = faces.get(0);
+                                final RectF boundingBox = new RectF(face.getBoundingBox());
+                                if (boundingBox != null) {
+                                    RectF faceBB = new RectF(boundingBox);
+                                    Bitmap crop = Bitmap.createBitmap(bOutput,
+                                            (int) faceBB.left,
+                                            (int) faceBB.top,
+                                            (int) faceBB.width(),
+                                            (int) faceBB.height());
 
-                                        ImageView imgStorage = findViewById(R.id.img_storage);
-                                        imgStorage.setImageBitmap(crop);
+                                    ImageView imgStorage = findViewById(R.id.img_storage);
+                                    imgStorage.setImageBitmap(crop);
 //                                        final long startTime = SystemClock.uptimeMillis();
 //                                        resultsAux = detector.recognizeImage(crop, true);
 //                                        long lastProcessingTimeMs = SystemClock.uptimeMillis() - startTime;
@@ -135,8 +127,7 @@ public class DetectorActivity extends CameraActivity {
 //                                        computingDetection = false;
 //                                        //adding = false;
 //                                        detector.register("User", resultsAux.get(0));
-                                        isLoadImageStorage = false;
-                                    }
+                                    isLoadImageStorage = false;
                                 }
                             }
                         });
@@ -204,25 +195,13 @@ public class DetectorActivity extends CameraActivity {
 
         cropToFrameTransform = new Matrix();
         frameToCropTransform.invert(cropToFrameTransform);
-
-        Matrix frameToPortraitTransform =
-                ImageUtils.getTransformationMatrix(
-                        previewWidth, previewHeight,
-                        targetW, targetH,
-                        sensorOrientation, MAINTAIN_ASPECT);
-
-        trackingOverlay = (OverlayView) findViewById(R.id.tracking_overlay);
-        trackingOverlay.addCallback(
-                new DrawCallback() {
-                    @Override
-                    public void drawCallback(final Canvas canvas) {
-                        tracker.draw(canvas);
-                        if (isDebug()) {
-                            tracker.drawDebug(canvas);
-                        }
-                    }
-                });
-
+        trackingOverlay = findViewById(R.id.tracking_overlay);
+        trackingOverlay.addCallback(canvas -> {
+            tracker.draw(canvas);
+            if (isDebug()) {
+                tracker.drawDebug(canvas);
+            }
+        });
         tracker.setFrameConfiguration(previewWidth, previewHeight, sensorOrientation);
     }
 
@@ -248,24 +227,17 @@ public class DetectorActivity extends CameraActivity {
         InputImage image = InputImage.fromBitmap(croppedBitmap, 0);
         faceDetector
                 .process(image)
-                .addOnSuccessListener(new OnSuccessListener<List<Face>>() {
-                    @Override
-                    public void onSuccess(List<Face> faces) {
-                        if (faces.size() == 0) {
-                            updateResults(currTimestamp, new LinkedList<>());
-                            return;
-                        }
-                        runInBackground(
-                                new Runnable() {
-                                    @Override
-                                    public void run() {
-                                        if (!isLoadImageStorage) {
-                                            onFacesDetected(currTimestamp, faces, addPending);
-                                            addPending = false;
-                                        }
-                                    }
-                                });
+                .addOnSuccessListener(faces -> {
+                    if (faces.size() == 0) {
+                        updateResults(currTimestamp, new LinkedList<>());
+                        return;
                     }
+                    runInBackground(() -> {
+                        if (!isLoadImageStorage) {
+                            onFacesDetected(currTimestamp, faces, addPending);
+                            addPending = false;
+                        }
+                    });
                 });
     }
 
@@ -277,10 +249,6 @@ public class DetectorActivity extends CameraActivity {
     @Override
     protected Size getDesiredPreviewFrameSize() {
         return DESIRED_PREVIEW_SIZE;
-    }
-
-    private enum DetectorMode {
-        TF_OD_API;
     }
 
     private Matrix createTransform(
@@ -314,8 +282,6 @@ public class DetectorActivity extends CameraActivity {
     }
 
     private void onFacesDetected(long currTimestamp, List<Face> faces, boolean add) {
-        Bitmap cropCopyBitmap = Bitmap.createBitmap(croppedBitmap);
-        final Canvas canvas = new Canvas(cropCopyBitmap);
         final Paint paint = new Paint();
         paint.setColor(Color.RED);
         paint.setStyle(Style.STROKE);
@@ -337,7 +303,6 @@ public class DetectorActivity extends CameraActivity {
         final Canvas cv = new Canvas(portraitBmp);
         cv.drawBitmap(rgbFrameBitmap, transform, null);
         final Canvas cvFace = new Canvas(faceBmp);
-        boolean saved = false;
 
         for (Face face : faces) {
             final RectF boundingBox = new RectF(face.getBoundingBox());
@@ -357,7 +322,6 @@ public class DetectorActivity extends CameraActivity {
                 Integer color = Color.BLUE;
                 Object extra = null;
                 Bitmap crop = null;
-
                 if (add) {
                     crop = Bitmap.createBitmap(portraitBmp,
                             (int) faceBB.left,
@@ -365,14 +329,10 @@ public class DetectorActivity extends CameraActivity {
                             (int) faceBB.width(),
                             (int) faceBB.height());
                 }
-
-                final long startTime = SystemClock.uptimeMillis();
                 final List<SimilarityClassifier.Recognition> resultsAux = detector.recognizeImage(faceBmp, add);
-
                 if (resultsAux.size() > 0) {
                     SimilarityClassifier.Recognition result = resultsAux.get(0);
                     extra = result.getExtra();
-
                     float conf = result.getDistance();
                     Log.e("conf-1", String.valueOf(conf));
                     if (conf < 1.0f) {
