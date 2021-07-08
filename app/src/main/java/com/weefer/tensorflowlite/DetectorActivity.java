@@ -11,7 +11,6 @@ import android.graphics.Paint.Style;
 import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.hardware.camera2.CameraCharacteristics;
-import android.media.ImageReader.OnImageAvailableListener;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.util.Log;
@@ -30,7 +29,6 @@ import com.weefer.tensorflowlite.customview.OverlayView;
 import com.weefer.tensorflowlite.customview.OverlayView.DrawCallback;
 import com.weefer.tensorflowlite.env.BorderedText;
 import com.weefer.tensorflowlite.env.ImageUtils;
-import com.weefer.tensorflowlite.env.Logger;
 import com.weefer.tensorflowlite.tflite.SimilarityClassifier;
 import com.weefer.tensorflowlite.tflite.TFLiteObjectDetectionAPIModel;
 import com.weefer.tensorflowlite.tracking.MultiBoxTracker;
@@ -41,39 +39,25 @@ import java.util.LinkedList;
 import java.util.List;
 
 public class DetectorActivity extends CameraActivity {
-    private static final Logger LOGGER = new Logger();
-//    FaceNet
-//    private static final int TF_OD_API_INPUT_SIZE = 160;
-//    private static final boolean TF_OD_API_IS_QUANTIZED = false;
-//    private static final String TF_OD_API_MODEL_FILE = "facenet.tflite";
-//    private static final String TF_OD_API_MODEL_FILE = "facenet_hiroki.tflite";
-
-    // MobileFaceNet
     private static final int TF_OD_API_INPUT_SIZE = 112;
     private static final boolean TF_OD_API_IS_QUANTIZED = false;
     private static final String TF_OD_API_MODEL_FILE = "mobile_face_net.tflite";
     private static final String TF_OD_API_LABELS_FILE = "file:///android_asset/labelmap.txt";
 
     private static final DetectorMode MODE = DetectorMode.TF_OD_API;
-    // Minimum detection confidence to track a detection.
     private static final float MINIMUM_CONFIDENCE_TF_OD_API = 0.5f;
     private static final boolean MAINTAIN_ASPECT = false;
 
     private static final Size DESIRED_PREVIEW_SIZE = new Size(640, 480);
-    //private static final int CROP_SIZE = 320;
-    //private static final Size CROP_SIZE = new Size(320, 320);
 
     private static final boolean SAVE_PREVIEW_BITMAP = false;
     private static final float TEXT_SIZE_DIP = 10;
-    OverlayView trackingOverlay;
+    private OverlayView trackingOverlay;
     private Integer sensorOrientation;
 
     private SimilarityClassifier detector;
-
-    private long lastProcessingTimeMs;
     private Bitmap rgbFrameBitmap = null;
     private Bitmap croppedBitmap = null;
-    private Bitmap cropCopyBitmap = null;
 
     private boolean computingDetection = false;
     private boolean addPending = false;
@@ -82,30 +66,22 @@ public class DetectorActivity extends CameraActivity {
     private Matrix frameToCropTransform;
     private Matrix cropToFrameTransform;
     private MultiBoxTracker tracker;
-    private BorderedText borderedText;
-    // Face detector
     private FaceDetector faceDetector;
-    // here the preview image is drawn in portrait way
     private Bitmap portraitBmp = null;
-    // here the face is cropped and drawn
     private Bitmap faceBmp = null;
+    private boolean isLoadImageStorage = true;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-//        addPending = true;
-        // Real-time contour detection of multiple faces
         FaceDetectorOptions options =
                 new FaceDetectorOptions.Builder()
                         .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
                         .setContourMode(FaceDetectorOptions.LANDMARK_MODE_NONE)
                         .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_NONE)
                         .build();
-        FaceDetector detector = FaceDetection.getClient(options);
-        faceDetector = detector;
+        faceDetector = FaceDetection.getClient(options);
     }
-
-    private boolean isLoadImageStorage = true;
 
     private void addImageStorage() {
         try {
@@ -146,7 +122,7 @@ public class DetectorActivity extends CameraActivity {
                                         imgStorage.setImageBitmap(crop);
 //                                        final long startTime = SystemClock.uptimeMillis();
 //                                        resultsAux = detector.recognizeImage(crop, true);
-//                                        lastProcessingTimeMs = SystemClock.uptimeMillis() - startTime;
+//                                        long lastProcessingTimeMs = SystemClock.uptimeMillis() - startTime;
 //                                        final SimilarityClassifier.Recognition result = new SimilarityClassifier.Recognition(
 //                                                "0", "Yudi", 0.0f, boundingBox);
 //                                        result.setColor(Color.YELLOW);
@@ -175,11 +151,10 @@ public class DetectorActivity extends CameraActivity {
         final float textSizePx =
                 TypedValue.applyDimension(
                         TypedValue.COMPLEX_UNIT_DIP, TEXT_SIZE_DIP, getResources().getDisplayMetrics());
-        borderedText = new BorderedText(textSizePx);
+        BorderedText borderedText = new BorderedText(textSizePx);
         borderedText.setTypeface(Typeface.MONOSPACE);
 
         tracker = new MultiBoxTracker(this);
-
 
         try {
             detector =
@@ -189,10 +164,8 @@ public class DetectorActivity extends CameraActivity {
                             TF_OD_API_LABELS_FILE,
                             TF_OD_API_INPUT_SIZE,
                             TF_OD_API_IS_QUANTIZED);
-            //cropSize = TF_OD_API_INPUT_SIZE;
         } catch (final IOException e) {
             e.printStackTrace();
-            LOGGER.e(e, "Exception initializing classifier!");
             Toast toast =
                     Toast.makeText(
                             getApplicationContext(), "Classifier could not be initialized", Toast.LENGTH_SHORT);
@@ -204,11 +177,7 @@ public class DetectorActivity extends CameraActivity {
         previewHeight = size.getHeight();
 
         sensorOrientation = rotation - getScreenOrientation();
-        LOGGER.i("Camera orientation relative to screen canvas: %d", sensorOrientation);
-
-        LOGGER.i("Initializing at size %dx%d", previewWidth, previewHeight);
         rgbFrameBitmap = Bitmap.createBitmap(previewWidth, previewHeight, Config.ARGB_8888);
-
 
         int targetW, targetH;
         if (sensorOrientation == 90 || sensorOrientation == 270) {
@@ -226,31 +195,12 @@ public class DetectorActivity extends CameraActivity {
         faceBmp = Bitmap.createBitmap(TF_OD_API_INPUT_SIZE, TF_OD_API_INPUT_SIZE, Config.ARGB_8888);
 
         addImageStorage();
-//        File imgFile = new File("/sdcard/Download/image_test.jpg");
-//        if (imgFile.exists()) {
-////            BitmapFactory.Options bmOptions = new BitmapFactory.Options();
-////            bmOptions.inPreferredConfig = Bitmap.Config.ARGB_8888;
-////            Bitmap bitmap = BitmapFactory.decodeFile(imgFile.getAbsolutePath(), bmOptions);
-////            bitmap = Bitmap.createScaledBitmap(bitmap, TF_OD_API_INPUT_SIZE, TF_OD_API_INPUT_SIZE, true);
-////            faceBmp = bitmap;
-//
-//            Bitmap bitmap = BitmapFactory.decodeFile(imgFile.getAbsolutePath());
-//            ImageView imgStorage = findViewById(R.id.img_storage);
-//            imgStorage.setImageBitmap(bitmap);
-//            addPending = true;
-//        }
 
         frameToCropTransform =
                 ImageUtils.getTransformationMatrix(
                         previewWidth, previewHeight,
                         cropW, cropH,
                         sensorOrientation, MAINTAIN_ASPECT);
-
-//    frameToCropTransform =
-//            ImageUtils.getTransformationMatrix(
-//                    previewWidth, previewHeight,
-//                    previewWidth, previewHeight,
-//                    sensorOrientation, MAINTAIN_ASPECT);
 
         cropToFrameTransform = new Matrix();
         frameToCropTransform.invert(cropToFrameTransform);
@@ -281,20 +231,16 @@ public class DetectorActivity extends CameraActivity {
         ++timestamp;
         final long currTimestamp = timestamp;
         trackingOverlay.postInvalidate();
-
-        // No mutex needed as this method is not reentrant.
         if (computingDetection) {
             readyForNextImage();
             return;
         }
         computingDetection = true;
-        LOGGER.i("Preparing image " + currTimestamp + " for detection in bg thread.");
         rgbFrameBitmap.setPixels(getRgbBytes(), 0, previewWidth, 0, 0, previewWidth, previewHeight);
         readyForNextImage();
 
         final Canvas canvas = new Canvas(croppedBitmap);
         canvas.drawBitmap(rgbFrameBitmap, frameToCropTransform, null);
-        // For examining the actual TF input.
         if (SAVE_PREVIEW_BITMAP) {
             ImageUtils.saveBitmap(croppedBitmap);
         }
@@ -333,13 +279,10 @@ public class DetectorActivity extends CameraActivity {
         return DESIRED_PREVIEW_SIZE;
     }
 
-    // Which detection model to use: by default uses Tensorflow Object Detection API frozen
-    // checkpoints.
     private enum DetectorMode {
         TF_OD_API;
     }
 
-    // Face Processing
     private Matrix createTransform(
             final int srcWidth,
             final int srcHeight,
@@ -349,23 +292,10 @@ public class DetectorActivity extends CameraActivity {
 
         Matrix matrix = new Matrix();
         if (applyRotation != 0) {
-            if (applyRotation % 90 != 0) {
-                LOGGER.w("Rotation of %d % 90 != 0", applyRotation);
-            }
-            // Translate so center of image is at origin.
             matrix.postTranslate(-srcWidth / 2.0f, -srcHeight / 2.0f);
-            // Rotate around origin.
             matrix.postRotate(applyRotation);
         }
-
-//        // Account for the already applied rotation, if any, and then determine how
-//        // much scaling is needed for each axis.
-//        final boolean transpose = (Math.abs(applyRotation) + 90) % 180 == 0;
-//        final int inWidth = transpose ? srcHeight : srcWidth;
-//        final int inHeight = transpose ? srcWidth : srcHeight;
-
         if (applyRotation != 0) {
-            // Translate back from origin centered reference to destination frame.
             matrix.postTranslate(dstWidth / 2.0f, dstHeight / 2.0f);
         }
         return matrix;
@@ -375,9 +305,7 @@ public class DetectorActivity extends CameraActivity {
         tracker.trackResults(mappedRecognitions, currTimestamp);
         trackingOverlay.postInvalidate();
         computingDetection = false;
-        //adding = false;
         if (mappedRecognitions.size() > 0) {
-            LOGGER.i("Adding results");
             SimilarityClassifier.Recognition rec = mappedRecognitions.get(0);
             if (rec.getExtra() != null) {
                 detector.register("User", rec);
@@ -386,24 +314,16 @@ public class DetectorActivity extends CameraActivity {
     }
 
     private void onFacesDetected(long currTimestamp, List<Face> faces, boolean add) {
-        cropCopyBitmap = Bitmap.createBitmap(croppedBitmap);
+        Bitmap cropCopyBitmap = Bitmap.createBitmap(croppedBitmap);
         final Canvas canvas = new Canvas(cropCopyBitmap);
         final Paint paint = new Paint();
         paint.setColor(Color.RED);
         paint.setStyle(Style.STROKE);
         paint.setStrokeWidth(2.0f);
 
-        float minimumConfidence = MINIMUM_CONFIDENCE_TF_OD_API;
-        switch (MODE) {
-            case TF_OD_API:
-                minimumConfidence = MINIMUM_CONFIDENCE_TF_OD_API;
-                break;
-        }
-
         final List<SimilarityClassifier.Recognition> mappedRecognitions =
                 new LinkedList<SimilarityClassifier.Recognition>();
 
-        // Note this can be done only once
         int sourceW = rgbFrameBitmap.getWidth();
         int sourceH = rgbFrameBitmap.getHeight();
         int targetW = portraitBmp.getWidth();
@@ -415,41 +335,22 @@ public class DetectorActivity extends CameraActivity {
                 targetH,
                 sensorOrientation);
         final Canvas cv = new Canvas(portraitBmp);
-
-        // draws the original image in portrait mode.
         cv.drawBitmap(rgbFrameBitmap, transform, null);
         final Canvas cvFace = new Canvas(faceBmp);
         boolean saved = false;
 
         for (Face face : faces) {
-            LOGGER.i("FACE" + face.toString());
-            LOGGER.i("Running detection on face " + currTimestamp);
-            //results = detector.recognizeImage(croppedBitmap);
-
             final RectF boundingBox = new RectF(face.getBoundingBox());
-
-            //final boolean goodConfidence = result.getConfidence() >= minimumConfidence;
-            final boolean goodConfidence = true; //face.get;
-            if (boundingBox != null && goodConfidence) {
-
-                // maps crop coordinates to original
+            if (boundingBox != null) {
                 cropToFrameTransform.mapRect(boundingBox);
-
-                // maps original coordinates to portrait coordinates
                 RectF faceBB = new RectF(boundingBox);
                 transform.mapRect(faceBB);
-
-                // translates portrait to origin and scales to fit input inference size
-                //cv.drawRect(faceBB, paint);
                 float sx = ((float) TF_OD_API_INPUT_SIZE) / faceBB.width();
                 float sy = ((float) TF_OD_API_INPUT_SIZE) / faceBB.height();
                 Matrix matrix = new Matrix();
                 matrix.postTranslate(-faceBB.left, -faceBB.top);
                 matrix.postScale(sx, sy);
-
                 cvFace.drawBitmap(portraitBmp, matrix, null);
-
-                //canvas.drawRect(faceBB, paint);
 
                 String label = "";
                 float confidence = -1f;
@@ -467,15 +368,10 @@ public class DetectorActivity extends CameraActivity {
 
                 final long startTime = SystemClock.uptimeMillis();
                 final List<SimilarityClassifier.Recognition> resultsAux = detector.recognizeImage(faceBmp, add);
-                lastProcessingTimeMs = SystemClock.uptimeMillis() - startTime;
 
                 if (resultsAux.size() > 0) {
                     SimilarityClassifier.Recognition result = resultsAux.get(0);
                     extra = result.getExtra();
-//          Object extra = result.getExtra();
-//          if (extra != null) {
-//            LOGGER.i("embeeding retrieved " + extra.toString());
-//          }
 
                     float conf = result.getDistance();
                     Log.e("conf-1", String.valueOf(conf));
@@ -489,17 +385,13 @@ public class DetectorActivity extends CameraActivity {
                         }
                     }
                 }
-
                 if (getCameraFacing() == CameraCharacteristics.LENS_FACING_FRONT) {
-                    // camera is frontal so the image is flipped horizontally
-                    // flips horizontally
                     Matrix flip = new Matrix();
                     if (sensorOrientation == 90 || sensorOrientation == 270) {
                         flip.postScale(1, -1, previewWidth / 2.0f, previewHeight / 2.0f);
                     } else {
                         flip.postScale(-1, 1, previewWidth / 2.0f, previewHeight / 2.0f);
                     }
-                    //flip.postScale(1, -1, targetW / 2.0f, targetH / 2.0f);
                     flip.mapRect(boundingBox);
                 }
 
