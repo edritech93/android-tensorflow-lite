@@ -12,7 +12,6 @@ import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.hardware.camera2.CameraCharacteristics;
 import android.os.Bundle;
-import android.os.SystemClock;
 import android.util.Log;
 import android.util.Size;
 import android.util.TypedValue;
@@ -63,6 +62,7 @@ public class DetectorActivity extends CameraActivity {
     private FaceDetector faceDetector;
     private Bitmap portraitBmp = null;
     private Bitmap faceBmp = null;
+    private Bitmap faceStorage = null;
     private boolean isLoadImageStorage = true;
 
     @Override
@@ -81,24 +81,28 @@ public class DetectorActivity extends CameraActivity {
         try {
             File imgFile = new File("/sdcard/Download/image_test.jpg");
             if (imgFile.exists() && isLoadImageStorage) {
-                FaceDetectorOptions options =
+                FaceDetectorOptions faceDetectorOptions =
                         new FaceDetectorOptions.Builder()
                                 .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
                                 .setContourMode(FaceDetectorOptions.LANDMARK_MODE_NONE)
                                 .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_NONE)
                                 .build();
-                FaceDetector imageDetector = FaceDetection.getClient(options);
-                Bitmap bInput = BitmapFactory.decodeFile(imgFile.getAbsolutePath());
+                FaceDetector imageDetector = FaceDetection.getClient(faceDetectorOptions);
+
+                BitmapFactory.Options options = new BitmapFactory.Options();
+                options.inPreferredConfig = Config.ARGB_8888;
+                Bitmap bInput = BitmapFactory.decodeFile(imgFile.getAbsolutePath(), options);
                 float degrees = 270;
                 Matrix matrix = new Matrix();
                 matrix.setRotate(degrees);
-                bInput = Bitmap.createScaledBitmap(bInput, TF_OD_API_INPUT_SIZE, TF_OD_API_INPUT_SIZE, true);
-                Bitmap bOutput = Bitmap.createBitmap(bInput, 0, 0, TF_OD_API_INPUT_SIZE, TF_OD_API_INPUT_SIZE, matrix, true);
+                bInput = Bitmap.createScaledBitmap(bInput, TF_OD_API_INPUT_SIZE, TF_OD_API_INPUT_SIZE, false);
+                Bitmap bOutput = Bitmap.createBitmap(bInput, 0, 0, TF_OD_API_INPUT_SIZE, TF_OD_API_INPUT_SIZE, matrix, false);
 
                 InputImage image = InputImage.fromBitmap(bOutput, 0);
                 imageDetector
                         .process(image)
                         .addOnSuccessListener(faces -> {
+                            Log.e("faces.size()", String.valueOf(faces.size()));
                             if (faces.size() > 0) {
                                 Face face = faces.get(0);
                                 final RectF boundingBox = new RectF(face.getBoundingBox());
@@ -112,22 +116,64 @@ public class DetectorActivity extends CameraActivity {
 
                                     ImageView imgStorage = findViewById(R.id.img_storage);
                                     imgStorage.setImageBitmap(crop);
-//                                        final long startTime = SystemClock.uptimeMillis();
-//                                        resultsAux = detector.recognizeImage(crop, true);
-//                                        long lastProcessingTimeMs = SystemClock.uptimeMillis() - startTime;
-//                                        final SimilarityClassifier.Recognition result = new SimilarityClassifier.Recognition(
-//                                                "0", "Yudi", 0.0f, boundingBox);
-//                                        result.setColor(Color.YELLOW);
-//                                        result.setLocation(boundingBox);
-//                                        result.setExtra(null);
-//                                        result.setCrop(crop);
+                                    faceStorage = crop;
+                                    addPending = true;
+
+//                                    final long currTimestamp = timestamp;
+//                                    String label = "";
+//                                    float confidence = -1f;
+//                                    Integer color = Color.BLUE;
+//                                    Object extra = null;
 //
-//                                        tracker.trackResults(resultsAux, timestamp);
-//                                        trackingOverlay.postInvalidate();
-//                                        computingDetection = false;
-//                                        //adding = false;
-//                                        detector.register("User", resultsAux.get(0));
+//                                    final List<SimilarityClassifier.Recognition> resultsAux = detector.recognizeImage(crop, true);
+//                                    if (resultsAux.size() > 0) {
+//                                        SimilarityClassifier.Recognition result = resultsAux.get(0);
+//                                        extra = result.getExtra();
+//                                        float conf = result.getDistance();
+//                                        Log.e("conf-0", String.valueOf(conf));
+//                                        if (conf < 1.0f) {
+//                                            confidence = conf;
+//                                            label = result.getTitle();
+//                                            if (result.getId().equals("0")) {
+//                                                color = Color.GREEN;
+//                                            } else {
+//                                                color = Color.RED;
+//                                            }
+//                                        }
+//                                    }
+//                                    if (getCameraFacing() == CameraCharacteristics.LENS_FACING_FRONT) {
+//                                        Matrix flip = new Matrix();
+//                                        if (sensorOrientation == 90 || sensorOrientation == 270) {
+//                                            flip.postScale(1, -1, previewWidth / 2.0f, previewHeight / 2.0f);
+//                                        } else {
+//                                            flip.postScale(-1, 1, previewWidth / 2.0f, previewHeight / 2.0f);
+//                                        }
+//                                        flip.mapRect(boundingBox);
+//                                    }
+//
+//                                    final List<SimilarityClassifier.Recognition> mappedRecognitions =
+//                                            new LinkedList<SimilarityClassifier.Recognition>();
+//
+//                                    final SimilarityClassifier.Recognition result = new SimilarityClassifier.Recognition(
+//                                            "0", label, confidence, boundingBox);
+//                                    result.setColor(color);
+//                                    result.setLocation(boundingBox);
+//                                    result.setExtra(extra);
+//                                    result.setCrop(crop);
+//                                    mappedRecognitions.add(result);
+//
+//                                    tracker.trackResults(mappedRecognitions, currTimestamp);
+//                                    trackingOverlay.postInvalidate();
+//                                    computingDetection = false;
+//                                    if (mappedRecognitions.size() > 0) {
+//                                        SimilarityClassifier.Recognition rec = mappedRecognitions.get(0);
+//                                        if (rec.getExtra() != null) {
+//                                            detector.register("User", rec);
+//                                        }
+//                                    }
+
                                     isLoadImageStorage = false;
+                                    return;
                                 }
                             }
                         });
