@@ -13,6 +13,7 @@ public interface SimilarityClassifier {
     void register(String name, Recognition recognition);
 
     List<Recognition> recognizeImage(Bitmap bitmap, boolean getExtra);
+    List<Recognition> recognizeImageStorage(Bitmap bitmap, boolean getExtra);
 
     void enableStatLogging(final boolean debug);
 

@@ -48,7 +48,8 @@ public class DetectorActivity extends CameraActivity {
     private OverlayView trackingOverlay;
     private Integer sensorOrientation;
 
-    private SimilarityClassifier detector;
+    public static SimilarityClassifier detector;
+    public static List<SimilarityClassifier.Recognition> resultsUser;
     private Bitmap rgbFrameBitmap = null;
     private Bitmap croppedBitmap = null;
 
@@ -62,8 +63,7 @@ public class DetectorActivity extends CameraActivity {
     private FaceDetector faceDetector;
     private Bitmap portraitBmp = null;
     private Bitmap faceBmp = null;
-    private Bitmap faceStorage = null;
-    private boolean isLoadImageStorage = true;
+    private final AddImage addImage = new AddImage();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -75,112 +75,6 @@ public class DetectorActivity extends CameraActivity {
                         .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_NONE)
                         .build();
         faceDetector = FaceDetection.getClient(options);
-    }
-
-    private void addImageStorage() {
-        try {
-            File imgFile = new File("/sdcard/Download/image_test.jpg");
-            if (imgFile.exists() && isLoadImageStorage) {
-                FaceDetectorOptions faceDetectorOptions =
-                        new FaceDetectorOptions.Builder()
-                                .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
-                                .setContourMode(FaceDetectorOptions.LANDMARK_MODE_NONE)
-                                .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_NONE)
-                                .build();
-                FaceDetector imageDetector = FaceDetection.getClient(faceDetectorOptions);
-
-                BitmapFactory.Options options = new BitmapFactory.Options();
-                options.inPreferredConfig = Config.ARGB_8888;
-                Bitmap bInput = BitmapFactory.decodeFile(imgFile.getAbsolutePath(), options);
-                float degrees = 270;
-                Matrix matrix = new Matrix();
-                matrix.setRotate(degrees);
-                bInput = Bitmap.createScaledBitmap(bInput, TF_OD_API_INPUT_SIZE, TF_OD_API_INPUT_SIZE, false);
-                Bitmap bOutput = Bitmap.createBitmap(bInput, 0, 0, TF_OD_API_INPUT_SIZE, TF_OD_API_INPUT_SIZE, matrix, false);
-
-                InputImage image = InputImage.fromBitmap(bOutput, 0);
-                imageDetector
-                        .process(image)
-                        .addOnSuccessListener(faces -> {
-                            Log.e("faces.size()", String.valueOf(faces.size()));
-                            if (faces.size() > 0) {
-                                Face face = faces.get(0);
-                                final RectF boundingBox = new RectF(face.getBoundingBox());
-                                if (boundingBox != null) {
-                                    RectF faceBB = new RectF(boundingBox);
-                                    Bitmap crop = Bitmap.createBitmap(bOutput,
-                                            (int) faceBB.left,
-                                            (int) faceBB.top,
-                                            (int) faceBB.width(),
-                                            (int) faceBB.height());
-
-                                    ImageView imgStorage = findViewById(R.id.img_storage);
-                                    imgStorage.setImageBitmap(crop);
-                                    faceStorage = crop;
-                                    addPending = true;
-
-//                                    final long currTimestamp = timestamp;
-//                                    String label = "";
-//                                    float confidence = -1f;
-//                                    Integer color = Color.BLUE;
-//                                    Object extra = null;
-//
-//                                    final List<SimilarityClassifier.Recognition> resultsAux = detector.recognizeImage(crop, true);
-//                                    if (resultsAux.size() > 0) {
-//                                        SimilarityClassifier.Recognition result = resultsAux.get(0);
-//                                        extra = result.getExtra();
-//                                        float conf = result.getDistance();
-//                                        Log.e("conf-0", String.valueOf(conf));
-//                                        if (conf < 1.0f) {
-//                                            confidence = conf;
-//                                            label = result.getTitle();
-//                                            if (result.getId().equals("0")) {
-//                                                color = Color.GREEN;
-//                                            } else {
-//                                                color = Color.RED;
-//                                            }
-//                                        }
-//                                    }
-//                                    if (getCameraFacing() == CameraCharacteristics.LENS_FACING_FRONT) {
-//                                        Matrix flip = new Matrix();
-//                                        if (sensorOrientation == 90 || sensorOrientation == 270) {
-//                                            flip.postScale(1, -1, previewWidth / 2.0f, previewHeight / 2.0f);
-//                                        } else {
-//                                            flip.postScale(-1, 1, previewWidth / 2.0f, previewHeight / 2.0f);
-//                                        }
-//                                        flip.mapRect(boundingBox);
-//                                    }
-//
-//                                    final List<SimilarityClassifier.Recognition> mappedRecognitions =
-//                                            new LinkedList<SimilarityClassifier.Recognition>();
-//
-//                                    final SimilarityClassifier.Recognition result = new SimilarityClassifier.Recognition(
-//                                            "0", label, confidence, boundingBox);
-//                                    result.setColor(color);
-//                                    result.setLocation(boundingBox);
-//                                    result.setExtra(extra);
-//                                    result.setCrop(crop);
-//                                    mappedRecognitions.add(result);
-//
-//                                    tracker.trackResults(mappedRecognitions, currTimestamp);
-//                                    trackingOverlay.postInvalidate();
-//                                    computingDetection = false;
-//                                    if (mappedRecognitions.size() > 0) {
-//                                        SimilarityClassifier.Recognition rec = mappedRecognitions.get(0);
-//                                        if (rec.getExtra() != null) {
-//                                            detector.register("User", rec);
-//                                        }
-//                                    }
-
-                                    isLoadImageStorage = false;
-                                    return;
-                                }
-                            }
-                        });
-            }
-        } catch (Exception e) {
-            Log.e("imageDetector", e.toString());
-        }
     }
 
     @Override
@@ -231,8 +125,6 @@ public class DetectorActivity extends CameraActivity {
         portraitBmp = Bitmap.createBitmap(targetW, targetH, Config.ARGB_8888);
         faceBmp = Bitmap.createBitmap(TF_OD_API_INPUT_SIZE, TF_OD_API_INPUT_SIZE, Config.ARGB_8888);
 
-        addImageStorage();
-
         frameToCropTransform =
                 ImageUtils.getTransformationMatrix(
                         previewWidth, previewHeight,
@@ -249,6 +141,7 @@ public class DetectorActivity extends CameraActivity {
             }
         });
         tracker.setFrameConfiguration(previewWidth, previewHeight, sensorOrientation);
+        addImage.addImageStorage(this);
     }
 
     @Override
@@ -279,7 +172,7 @@ public class DetectorActivity extends CameraActivity {
                         return;
                     }
                     runInBackground(() -> {
-                        if (!isLoadImageStorage) {
+                        if (!addImage.isLoadImageStorage()) {
                             onFacesDetected(currTimestamp, faces, addPending);
                             addPending = false;
                         }
@@ -375,9 +268,9 @@ public class DetectorActivity extends CameraActivity {
                             (int) faceBB.width(),
                             (int) faceBB.height());
                 }
-                final List<SimilarityClassifier.Recognition> resultsAux = detector.recognizeImage(faceBmp, add);
-                if (resultsAux.size() > 0) {
-                    SimilarityClassifier.Recognition result = resultsAux.get(0);
+                resultsUser = detector.recognizeImage(faceBmp, add);
+                if (resultsUser.size() > 0) {
+                    SimilarityClassifier.Recognition result = resultsUser.get(0);
                     extra = result.getExtra();
                     float conf = result.getDistance();
                     Log.e("conf-1", String.valueOf(conf));

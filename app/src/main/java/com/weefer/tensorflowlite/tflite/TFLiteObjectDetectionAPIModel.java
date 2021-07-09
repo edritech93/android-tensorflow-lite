@@ -5,6 +5,7 @@ import android.content.res.AssetManager;
 import android.graphics.Bitmap;
 import android.graphics.RectF;
 import android.os.Trace;
+import android.util.Log;
 import android.util.Pair;
 
 import com.weefer.tensorflowlite.env.Logger;
@@ -21,6 +22,7 @@ import java.nio.ByteOrder;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -271,6 +273,104 @@ public class TFLiteObjectDetectionAPIModel
 
         Trace.endSection();
         return recognitions;
+    }
+
+    @Override
+    public List<Recognition> recognizeImageStorage(final Bitmap bitmap, boolean storeExtra) {
+        // Log this method so that it can be analyzed with systrace.
+        Trace.beginSection("recognizeImage");
+
+        Trace.beginSection("preprocessBitmap");
+        // Preprocess the image data from 0-255 int to normalized float based
+        // on the provided parameters.
+        bitmap.getPixels(intValues, 0, bitmap.getWidth(), 0, 0, bitmap.getWidth(), bitmap.getHeight());
+
+        imgData.rewind();
+        for (int i = 0; i < inputSize; ++i) {
+            for (int j = 0; j < inputSize; ++j) {
+                int pixelValue = intValues[i * inputSize + j];
+                if (isModelQuantized) {
+                    // Quantized model
+                    imgData.put((byte) ((pixelValue >> 16) & 0xFF));
+                    imgData.put((byte) ((pixelValue >> 8) & 0xFF));
+                    imgData.put((byte) (pixelValue & 0xFF));
+                } else { // Float model
+                    imgData.putFloat((((pixelValue >> 16) & 0xFF) - IMAGE_MEAN) / IMAGE_STD);
+                    imgData.putFloat((((pixelValue >> 8) & 0xFF) - IMAGE_MEAN) / IMAGE_STD);
+                    imgData.putFloat(((pixelValue & 0xFF) - IMAGE_MEAN) / IMAGE_STD);
+                }
+            }
+        }
+        Trace.endSection(); // preprocessBitmap
+
+        // Copy the input data into TensorFlow.
+        Trace.beginSection("feed");
+        int bytes = bitmap.getByteCount();
+        Log.e("memSize", String.valueOf(bytes));
+        ByteBuffer buffer = ByteBuffer.allocate(bytes); //Create a new buffer
+        bitmap.copyPixelsToBuffer(buffer); //Move the byte data to the buffer
+        Object[] inputArray = {buffer};
+        Trace.endSection();
+
+        Map<Integer, Object> outputMap = new HashMap<>();
+        embeedings = new float[1][OUTPUT_SIZE];
+        outputMap.put(0, embeedings);
+
+        Trace.beginSection("run");
+        tfLite.runForMultipleInputsOutputs(inputArray, outputMap);
+        Trace.endSection();
+
+        float distance = Float.MAX_VALUE;
+        String id = "0";
+        String label = "?";
+
+        if (registered.size() > 0) {
+            final Pair<String, Float> nearest = findNearest(embeedings[0]);
+            if (nearest != null) {
+                final String name = nearest.first;
+                label = name;
+                distance = nearest.second;
+                LOGGER.i("nearest: " + name + " - distance: " + distance);
+            }
+        }
+
+        final int numDetectionsOutput = 1;
+        final ArrayList<Recognition> recognitions = new ArrayList<>(numDetectionsOutput);
+        Recognition rec = new Recognition(
+                id,
+                label,
+                distance,
+                new RectF());
+
+        recognitions.add(rec);
+
+        if (storeExtra) {
+            rec.setExtra(embeedings);
+        }
+
+        Trace.endSection();
+        return recognitions;
+    }
+
+    private static final int BATCH_SIZE = 1;
+    private static final int PIXEL_SIZE = 3;
+
+    private ByteBuffer convertBitmapToByteBuffer(Bitmap bitmap) {
+        ByteBuffer byteBuffer = ByteBuffer.allocateDirect(4 * BATCH_SIZE * inputSize * inputSize * PIXEL_SIZE);
+
+        byteBuffer.order(ByteOrder.nativeOrder());
+        int[] intValues = new int[inputSize * inputSize];
+        bitmap.getPixels(intValues, 0, bitmap.getWidth(), 0, 0, bitmap.getWidth(), bitmap.getHeight());
+        int pixel = 0;
+        for (int i = 0; i < inputSize; ++i) {
+            for (int j = 0; j < inputSize; ++j) {
+                final int val = intValues[pixel++];
+                byteBuffer.putFloat((((val >> 16) & 0xFF) - IMAGE_MEAN) / IMAGE_STD);
+                byteBuffer.putFloat((((val >> 8) & 0xFF) - IMAGE_MEAN) / IMAGE_STD);
+                byteBuffer.putFloat((((val) & 0xFF) - IMAGE_MEAN) / IMAGE_STD);
+            }
+        }
+        return byteBuffer;
     }
 
     @Override
