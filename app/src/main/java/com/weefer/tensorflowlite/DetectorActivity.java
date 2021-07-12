@@ -2,7 +2,6 @@ package com.weefer.tensorflowlite;
 
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.Config;
-import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Matrix;
@@ -15,7 +14,6 @@ import android.os.Bundle;
 import android.util.Log;
 import android.util.Size;
 import android.util.TypedValue;
-import android.widget.ImageView;
 import android.widget.Toast;
 
 import com.google.mlkit.vision.common.InputImage;
@@ -30,7 +28,6 @@ import com.weefer.tensorflowlite.tflite.SimilarityClassifier;
 import com.weefer.tensorflowlite.tflite.TFLiteObjectDetectionAPIModel;
 import com.weefer.tensorflowlite.tracking.MultiBoxTracker;
 
-import java.io.File;
 import java.io.IOException;
 import java.util.LinkedList;
 import java.util.List;
@@ -172,10 +169,8 @@ public class DetectorActivity extends CameraActivity {
                         return;
                     }
                     runInBackground(() -> {
-                        if (!addImage.isLoadImageStorage()) {
                             onFacesDetected(currTimestamp, faces, addPending);
                             addPending = false;
-                        }
                     });
                 });
     }
@@ -212,12 +207,13 @@ public class DetectorActivity extends CameraActivity {
         tracker.trackResults(mappedRecognitions, currTimestamp);
         trackingOverlay.postInvalidate();
         computingDetection = false;
-        if (mappedRecognitions.size() > 0) {
-            SimilarityClassifier.Recognition rec = mappedRecognitions.get(0);
-            if (rec.getExtra() != null) {
-                detector.register("User", rec);
-            }
-        }
+
+//        if (mappedRecognitions.size() > 0) {
+//            SimilarityClassifier.Recognition rec = mappedRecognitions.get(0);
+//            if (rec.getExtra() != null) {
+//                detector.register("User", rec);
+//            }
+//        }
     }
 
     private void onFacesDetected(long currTimestamp, List<Face> faces, boolean add) {
@@ -273,9 +269,8 @@ public class DetectorActivity extends CameraActivity {
                     SimilarityClassifier.Recognition result = resultsUser.get(0);
                     extra = result.getExtra();
                     float conf = result.getDistance();
-                    Log.e("conf-1", String.valueOf(conf));
+                    confidence = conf;
                     if (conf < 1.0f) {
-                        confidence = conf;
                         label = result.getTitle();
                         if (result.getId().equals("0")) {
                             color = Color.GREEN;

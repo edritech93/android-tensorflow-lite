@@ -134,10 +134,12 @@ public class MultiBoxTracker {
             canvas.drawRoundRect(trackedPos, cornerSize, cornerSize, boxPaint);
 
 
-            @SuppressLint("DefaultLocale") final String strConfidence =
-                    recognition.detectionConfidence < 0
-                            ? ""
-                            : String.format("%.2f", (recognition.detectionConfidence)) + "";
+//            @SuppressLint("DefaultLocale") final String strConfidence =
+//                    recognition.detectionConfidence < 0
+//                            ? ""
+//                            : String.format("%.2f", (recognition.detectionConfidence)) + "";
+
+            @SuppressLint("DefaultLocale") final String strConfidence = String.format("%.2f", (recognition.detectionConfidence)) + "";
 
             final String labelString =
                     !TextUtils.isEmpty(recognition.title)

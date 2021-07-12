@@ -98,24 +98,15 @@ public interface SimilarityClassifier {
 
         @Override
         public String toString() {
-            String resultString = "";
-            if (id != null) {
-                resultString += "[" + id + "] ";
-            }
-
-            if (title != null) {
-                resultString += title + " ";
-            }
-
-            if (distance != null) {
-                resultString += String.format("(%.1f%%) ", distance * 100.0f);
-            }
-
-            if (location != null) {
-                resultString += location + " ";
-            }
-
-            return resultString.trim();
+            return "Recognition{" +
+                    "id='" + id + '\'' +
+                    ", title='" + title + '\'' +
+                    ", distance=" + distance +
+                    ", extra=" + extra +
+                    ", location=" + location +
+                    ", color=" + color +
+                    ", crop=" + crop +
+                    '}';
         }
 
         public Integer getColor() {

@@ -305,11 +305,7 @@ public class TFLiteObjectDetectionAPIModel
 
         // Copy the input data into TensorFlow.
         Trace.beginSection("feed");
-        int bytes = bitmap.getByteCount();
-        Log.e("memSize", String.valueOf(bytes));
-        ByteBuffer buffer = ByteBuffer.allocate(bytes); //Create a new buffer
-        bitmap.copyPixelsToBuffer(buffer); //Move the byte data to the buffer
-        Object[] inputArray = {buffer};
+        Object[] inputArray = {imgData};
         Trace.endSection();
 
         Map<Integer, Object> outputMap = new HashMap<>();
@@ -334,43 +330,18 @@ public class TFLiteObjectDetectionAPIModel
             }
         }
 
-        final int numDetectionsOutput = 1;
-        final ArrayList<Recognition> recognitions = new ArrayList<>(numDetectionsOutput);
+        final ArrayList<Recognition> recognitions = new ArrayList<>(1);
         Recognition rec = new Recognition(
-                id,
+                "0",
                 label,
                 distance,
                 new RectF());
 
         recognitions.add(rec);
-
         if (storeExtra) {
             rec.setExtra(embeedings);
         }
-
-        Trace.endSection();
         return recognitions;
-    }
-
-    private static final int BATCH_SIZE = 1;
-    private static final int PIXEL_SIZE = 3;
-
-    private ByteBuffer convertBitmapToByteBuffer(Bitmap bitmap) {
-        ByteBuffer byteBuffer = ByteBuffer.allocateDirect(4 * BATCH_SIZE * inputSize * inputSize * PIXEL_SIZE);
-
-        byteBuffer.order(ByteOrder.nativeOrder());
-        int[] intValues = new int[inputSize * inputSize];
-        bitmap.getPixels(intValues, 0, bitmap.getWidth(), 0, 0, bitmap.getWidth(), bitmap.getHeight());
-        int pixel = 0;
-        for (int i = 0; i < inputSize; ++i) {
-            for (int j = 0; j < inputSize; ++j) {
-                final int val = intValues[pixel++];
-                byteBuffer.putFloat((((val >> 16) & 0xFF) - IMAGE_MEAN) / IMAGE_STD);
-                byteBuffer.putFloat((((val >> 8) & 0xFF) - IMAGE_MEAN) / IMAGE_STD);
-                byteBuffer.putFloat((((val) & 0xFF) - IMAGE_MEAN) / IMAGE_STD);
-            }
-        }
-        return byteBuffer;
     }
 
     @Override
