@@ -14,6 +14,7 @@ import android.os.Bundle;
 import android.util.Log;
 import android.util.Size;
 import android.util.TypedValue;
+import android.widget.ImageView;
 import android.widget.Toast;
 
 import com.google.mlkit.vision.common.InputImage;
@@ -60,7 +61,7 @@ public class DetectorActivity extends CameraActivity {
     private FaceDetector faceDetector;
     private Bitmap portraitBmp = null;
     private Bitmap faceBmp = null;
-    private final AddImage addImage = new AddImage();
+    private AddImage addImage = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -72,6 +73,7 @@ public class DetectorActivity extends CameraActivity {
                         .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_NONE)
                         .build();
         faceDetector = FaceDetection.getClient(options);
+        addImage = new AddImage(this);
     }
 
     @Override
@@ -138,7 +140,7 @@ public class DetectorActivity extends CameraActivity {
             }
         });
         tracker.setFrameConfiguration(previewWidth, previewHeight, sensorOrientation);
-        addImage.addImageStorage(this);
+        addImage.addImageStorage();
     }
 
     @Override

@@ -21,6 +21,8 @@ import com.weefer.tensorflowlite.tflite.TFLiteObjectDetectionAPIModel;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.util.List;
 
 import static com.weefer.tensorflowlite.DetectorActivity.detector;
 import static com.weefer.tensorflowlite.DetectorActivity.resultsUser;
@@ -29,6 +31,11 @@ public class AddImage {
     private final int TF_OD_API_INPUT_SIZE = 112;
     private Bitmap faceStorage = Bitmap.createBitmap(TF_OD_API_INPUT_SIZE, TF_OD_API_INPUT_SIZE, Bitmap.Config.ARGB_8888);
     private boolean isLoadImageStorage = true;
+    private final Activity activity;
+
+    public AddImage(Activity activity) {
+        this.activity = activity;
+    }
 
     public Bitmap getFaceStorage() {
         return faceStorage;
@@ -38,11 +45,10 @@ public class AddImage {
         return isLoadImageStorage;
     }
 
-    public void addImageStorage(Activity activity) {
+    public void addImageStorage() {
         try {
             File imgFile = new File("/sdcard/Download/image_test.jpg");
             if (imgFile.exists()) {
-                isLoadImageStorage = false;
                 FaceDetectorOptions faceDetectorOptions =
                         new FaceDetectorOptions.Builder()
                                 .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
@@ -64,7 +70,6 @@ public class AddImage {
                 imageDetector
                         .process(image)
                         .addOnSuccessListener(faces -> {
-                            Log.e("faces.size()", String.valueOf(faces.size()));
                             if (faces.size() > 0) {
                                 Face face = faces.get(0);
                                 final RectF boundingBox = new RectF(face.getBoundingBox());
@@ -75,52 +80,12 @@ public class AddImage {
                                             (int) faceBB.top,
                                             (int) faceBB.width(),
                                             (int) faceBB.height());
-//                                    resultsUser = detector.recognizeImage(crop, true);
-//                                    detector.register("Yudi", resultsUser.get(0));
                                     ImageView imageView = activity.findViewById(R.id.img_storage);
                                     imageView.setImageBitmap(crop);
                                     faceStorage = crop;
                                     imageDetector.close();
-
-//                                    String label = "";
-//                                    float confidence = -1f;
-//                                    Integer color = Color.BLUE;
-//                                    Object extra = null;
-//                                    resultsUser = detector.recognizeImage(crop, true);
-//                                    if (resultsUser.size() > 0) {
-//                                        SimilarityClassifier.Recognition result = resultsUser.get(0);
-//                                        extra = result.getExtra();
-//                                        float conf = result.getDistance();
-//                                        Log.e("conf-0", String.valueOf(conf));
-//                                        if (conf < 1.0f) {
-//                                            confidence = conf;
-//                                            label = result.getTitle();
-//                                            if (result.getId().equals("0")) {
-//                                                color = Color.GREEN;
-//                                            } else {
-//                                                color = Color.RED;
-//                                            }
-//                                        }
-//                                    }
-//                                    final SimilarityClassifier.Recognition result = new SimilarityClassifier.Recognition(
-//                                            "0", label, confidence, boundingBox);
-//                                    result.setColor(color);
-//                                    result.setLocation(boundingBox);
-//                                    result.setExtra(extra);
-//                                    result.setCrop(crop);
-//
-//                                    detector.register("Yudi", result);
-
-//                                    resultsUser = detector.recognizeImageStorage(crop, true);
-//
-//                                    final SimilarityClassifier.Recognition result = new SimilarityClassifier.Recognition(
-//                                            "0", "User Haermes", 0.5f, boundingBox);
-//                                    SimilarityClassifier.Recognition resultAux = resultsUser.get(0);
-//                                    result.setColor(Color.GREEN);
-//                                    result.setLocation(boundingBox);
-//                                    result.setExtra(resultAux.getExtra());
-//                                    result.setCrop(crop);
-//                                    detector.register("Yudi", result);
+                                    isLoadImageStorage = false;
+//                                    detector.addImageStorage(faceStorage);
                                 }
                             }
                         });
