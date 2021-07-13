@@ -14,7 +14,6 @@ import android.os.Bundle;
 import android.util.Log;
 import android.util.Size;
 import android.util.TypedValue;
-import android.widget.ImageView;
 import android.widget.Toast;
 
 import com.google.mlkit.vision.common.InputImage;
@@ -25,6 +24,7 @@ import com.google.mlkit.vision.face.FaceDetectorOptions;
 import com.weefer.tensorflowlite.customview.OverlayView;
 import com.weefer.tensorflowlite.env.BorderedText;
 import com.weefer.tensorflowlite.env.ImageUtils;
+import com.weefer.tensorflowlite.model.Recognition;
 import com.weefer.tensorflowlite.tflite.SimilarityClassifier;
 import com.weefer.tensorflowlite.tflite.TFLiteObjectDetectionAPIModel;
 import com.weefer.tensorflowlite.tracking.MultiBoxTracker;
@@ -47,12 +47,12 @@ public class DetectorActivity extends CameraActivity {
     private Integer sensorOrientation;
 
     public static SimilarityClassifier detector;
-    public static List<SimilarityClassifier.Recognition> resultsUser;
+    public static List<Recognition> resultsUser;
     private Bitmap rgbFrameBitmap = null;
     private Bitmap croppedBitmap = null;
 
     private boolean computingDetection = false;
-    private boolean addPending = false;
+    private boolean addPending = true;
 
     private long timestamp = 0;
     private Matrix frameToCropTransform;
@@ -205,17 +205,17 @@ public class DetectorActivity extends CameraActivity {
         return matrix;
     }
 
-    private void updateResults(long currTimestamp, final List<SimilarityClassifier.Recognition> mappedRecognitions) {
+    private void updateResults(long currTimestamp, final List<Recognition> mappedRecognitions) {
         tracker.trackResults(mappedRecognitions, currTimestamp);
         trackingOverlay.postInvalidate();
         computingDetection = false;
 
-//        if (mappedRecognitions.size() > 0) {
-//            SimilarityClassifier.Recognition rec = mappedRecognitions.get(0);
-//            if (rec.getExtra() != null) {
-//                detector.register("User", rec);
-//            }
-//        }
+        if (mappedRecognitions.size() > 0) {
+            Recognition rec = mappedRecognitions.get(0);
+            if (rec.getExtra() != null) {
+                detector.register("User", rec);
+            }
+        }
     }
 
     private void onFacesDetected(long currTimestamp, List<Face> faces, boolean add) {
@@ -224,8 +224,7 @@ public class DetectorActivity extends CameraActivity {
         paint.setStyle(Style.STROKE);
         paint.setStrokeWidth(2.0f);
 
-        final List<SimilarityClassifier.Recognition> mappedRecognitions =
-                new LinkedList<SimilarityClassifier.Recognition>();
+        final List<Recognition> mappedRecognitions = new LinkedList<Recognition>();
 
         int sourceW = rgbFrameBitmap.getWidth();
         int sourceH = rgbFrameBitmap.getHeight();
@@ -268,7 +267,7 @@ public class DetectorActivity extends CameraActivity {
                 }
                 resultsUser = detector.recognizeImage(faceBmp, add);
                 if (resultsUser.size() > 0) {
-                    SimilarityClassifier.Recognition result = resultsUser.get(0);
+                    Recognition result = resultsUser.get(0);
                     extra = result.getExtra();
                     float conf = result.getDistance();
                     confidence = conf;
@@ -291,7 +290,7 @@ public class DetectorActivity extends CameraActivity {
                     flip.mapRect(boundingBox);
                 }
 
-                final SimilarityClassifier.Recognition result = new SimilarityClassifier.Recognition(
+                final Recognition result = new Recognition(
                         "0", label, confidence, boundingBox);
                 result.setColor(color);
                 result.setLocation(boundingBox);
