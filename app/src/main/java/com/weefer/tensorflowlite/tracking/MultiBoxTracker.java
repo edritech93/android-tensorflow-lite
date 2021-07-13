@@ -17,15 +17,12 @@ import android.util.TypedValue;
 import com.weefer.tensorflowlite.env.BorderedText;
 import com.weefer.tensorflowlite.env.ImageUtils;
 import com.weefer.tensorflowlite.env.Logger;
-import com.weefer.tensorflowlite.tflite.SimilarityClassifier.Recognition;
+import com.weefer.tensorflowlite.model.Recognition;
 
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
 
-/**
- * A tracker that handles non-max suppression and matches existing objects to new detections.
- */
 public class MultiBoxTracker {
     private static final float TEXT_SIZE_DIP = 18;
     private static final float MIN_SIZE = 16.0f;

@@ -7,7 +7,7 @@ import android.util.AttributeSet;
 import android.util.TypedValue;
 import android.view.View;
 
-import com.weefer.tensorflowlite.tflite.SimilarityClassifier.Recognition;
+import com.weefer.tensorflowlite.model.Recognition;
 
 import java.util.List;
 
