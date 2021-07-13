@@ -165,7 +165,7 @@ public class TFLiteObjectDetectionAPIModel implements SimilarityClassifier {
             tfLite.runForMultipleInputsOutputs(inputArray, outputMap);
             Trace.endSection();
         } else {
-            File imgFile = new File("/sdcard/images/user.png");
+            File imgFile = new File("/sdcard/Download/user.png");
             if (imgFile.exists()) {
                 Bitmap bitmapStorage = BitmapFactory.decodeFile(imgFile.getAbsolutePath());
 
