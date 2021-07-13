@@ -3,15 +3,23 @@ package com.weefer.tensorflowlite.tflite;
 import android.content.res.AssetFileDescriptor;
 import android.content.res.AssetManager;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.RectF;
 import android.os.Trace;
 import android.util.Pair;
 
+import com.google.mlkit.vision.common.InputImage;
+import com.google.mlkit.vision.face.Face;
+import com.google.mlkit.vision.face.FaceDetection;
+import com.google.mlkit.vision.face.FaceDetector;
+import com.google.mlkit.vision.face.FaceDetectorOptions;
+import com.weefer.tensorflowlite.helper.Helper;
 import com.weefer.tensorflowlite.model.Recognition;
 
 import org.tensorflow.lite.Interpreter;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -142,27 +150,66 @@ public class TFLiteObjectDetectionAPIModel implements SimilarityClassifier {
                 }
             }
         }
-        Trace.endSection(); // preprocessBitmap
-
-        // Copy the input data into TensorFlow.
-        Trace.beginSection("feed");
-        Object[] inputArray = {imgData};
         Trace.endSection();
 
-        Map<Integer, Object> outputMap = new HashMap<>();
         float[][] embeedings = new float[1][OUTPUT_SIZE];
-        outputMap.put(0, embeedings);
+        if (!storeExtra) {
+            Trace.beginSection("feed");
+            Object[] inputArray = {imgData};
+            Trace.endSection();
 
-        Trace.beginSection("run");
-        tfLite.runForMultipleInputsOutputs(inputArray, outputMap);
-        Trace.endSection();
+            Map<Integer, Object> outputMap = new HashMap<>();
+            outputMap.put(0, embeedings);
 
-//    String res = "[";
-//    for (int i = 0; i < embeedings[0].length; i++) {
-//      res += embeedings[0][i];
-//      if (i < embeedings[0].length - 1) res += ", ";
-//    }
-//    res += "]";
+            Trace.beginSection("run");
+            tfLite.runForMultipleInputsOutputs(inputArray, outputMap);
+            Trace.endSection();
+        } else {
+            File imgFile = new File("/sdcard/images/user.png");
+            if (imgFile.exists()) {
+                Bitmap bitmapStorage = BitmapFactory.decodeFile(imgFile.getAbsolutePath());
+
+                FaceDetectorOptions faceDetectorOptions =
+                        new FaceDetectorOptions.Builder()
+                                .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
+                                .setContourMode(FaceDetectorOptions.LANDMARK_MODE_NONE)
+                                .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_NONE)
+                                .build();
+                FaceDetector imageDetector = FaceDetection.getClient(faceDetectorOptions);
+
+                InputImage image = InputImage.fromBitmap(bitmapStorage, 0);
+                imageDetector
+                        .process(image)
+                        .addOnSuccessListener(faces -> {
+                            if (faces.size() > 0) {
+                                Face face = faces.get(0);
+                                final RectF boundingBox = new RectF(face.getBoundingBox());
+                                if (boundingBox != null) {
+                                    RectF faceBB = new RectF(boundingBox);
+                                    Bitmap crop = Bitmap.createBitmap(bitmapStorage,
+                                            (int) faceBB.left,
+                                            (int) faceBB.top,
+                                            (int) faceBB.width(),
+                                            (int) faceBB.height());
+                                    Helper helper = new Helper();
+                                    ByteBuffer byteBuffer = helper.convertBitmapToBuffer(crop);
+
+                                    Trace.beginSection("feed");
+                                    Object[] inputArray = {byteBuffer};
+                                    Trace.endSection();
+
+                                    Map<Integer, Object> outputMap = new HashMap<>();
+                                    outputMap.put(0, embeedings);
+
+                                    Trace.beginSection("run");
+                                    tfLite.runForMultipleInputsOutputs(inputArray, outputMap);
+                                    Trace.endSection();
+                                    imageDetector.close();
+                                }
+                            }
+                        });
+            }
+        }
 
         float distance = Float.MAX_VALUE;
         String id = "0";

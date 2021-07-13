@@ -11,6 +11,7 @@ import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.hardware.camera2.CameraCharacteristics;
 import android.os.Bundle;
+import android.util.Log;
 import android.util.Size;
 import android.util.TypedValue;
 import android.widget.Toast;
@@ -51,7 +52,7 @@ public class DetectorActivity extends CameraActivity {
     private Bitmap croppedBitmap = null;
 
     private boolean computingDetection = false;
-    private boolean addPending = false;
+    private boolean addPending = true;
 
     private long timestamp = 0;
     private Matrix frameToCropTransform;

@@ -35,7 +35,7 @@ import java.nio.ByteBuffer
 class FaceNetModel( context : Context ) {
 
     // TFLiteInterpreter used for running the FaceNet model.
-    private var interpreter : Interpreter
+//    private var interpreter : Interpreter
 
     // Input image size for FaceNet model.
     private val imgSize = 112
@@ -49,36 +49,36 @@ class FaceNetModel( context : Context ) {
             .add( NormalizeOp( 127.5f , 127.5f ) )
             .build()
 
-    init {
-        // Initialize TFLiteInterpreter
-        val interpreterOptions = Interpreter.Options().apply {
-            setNumThreads( 4 )
-        }
-        interpreter = Interpreter(FileUtil.loadMappedFile(context, "mobile_facenet.tflite") , interpreterOptions )
-    }
+//    init {
+//         Initialize TFLiteInterpreter
+//        val interpreterOptions = Interpreter.Options().apply {
+//            setNumThreads( 4 )
+//        }
+//        interpreter = Interpreter(FileUtil.loadMappedFile(context, "mobile_facenet.tflite") , interpreterOptions )
+//    }
 
     // Gets an face embedding using FaceNet, use the `crop` rect.
-    fun getFaceEmbedding( image : Bitmap , crop : Rect , preRotate: Boolean , isRearCameraOn: Boolean ) : FloatArray {
-        return runFaceNet(
-            convertBitmapToBuffer(
-                cropRectFromBitmap( image , crop , preRotate , isRearCameraOn )
-            )
-        )[0]
-    }
+//    fun getFaceEmbedding( image : Bitmap , crop : Rect , preRotate: Boolean , isRearCameraOn: Boolean ) : FloatArray {
+//        return runFaceNet(
+//            convertBitmapToBuffer(
+//                cropRectFromBitmap( image , crop , preRotate , isRearCameraOn )
+//            )
+//        )[0]
+//    }
 
     // Gets an face embedding using the FaceNet model, given the cropped images.
-    fun getFaceEmbeddingWithoutBBox( image : Bitmap ) : FloatArray {
-        return runFaceNet( convertBitmapToBuffer( image ) )[0]
-    }
+//    fun getFaceEmbeddingWithoutBBox( image : Bitmap ) : FloatArray {
+//        return runFaceNet( convertBitmapToBuffer( image ) )[0]
+//    }
 
     // Run the FaceNet model.
-    private fun runFaceNet(inputs: Any): Array<FloatArray> {
-        val t1 = System.currentTimeMillis()
-        val outputs = Array(1) { FloatArray(embeddingDim ) }
-        interpreter.run(inputs, outputs)
-        Log.i( "Performance" , "FaceNet Inference Speed in ms : ${System.currentTimeMillis() - t1}")
-        return outputs
-    }
+//    private fun runFaceNet(inputs: Any): Array<FloatArray> {
+//        val t1 = System.currentTimeMillis()
+//        val outputs = Array(1) { FloatArray(embeddingDim ) }
+//        interpreter.run(inputs, outputs)
+//        Log.i( "Performance" , "FaceNet Inference Speed in ms : ${System.currentTimeMillis() - t1}")
+//        return outputs
+//    }
 
     // Resize the given bitmap and convert it to a ByteBuffer
     private fun convertBitmapToBuffer( image : Bitmap) : ByteBuffer {
