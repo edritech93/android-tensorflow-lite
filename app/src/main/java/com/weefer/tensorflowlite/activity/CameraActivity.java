@@ -1,4 +1,4 @@
-package com.weefer.tensorflowlite;
+package com.weefer.tensorflowlite.activity;
 
 import android.Manifest;
 import android.app.Fragment;
@@ -26,14 +26,12 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.weefer.tensorflowlite.R;
 import com.weefer.tensorflowlite.env.ImageUtils;
-import com.weefer.tensorflowlite.env.Logger;
 
 import java.nio.ByteBuffer;
 
 public abstract class CameraActivity extends AppCompatActivity implements OnImageAvailableListener, Camera.PreviewCallback {
-    private static final Logger LOGGER = new Logger();
-
     private static final int PERMISSIONS_REQUEST = 1;
 
     private static final String PERMISSION_CAMERA = Manifest.permission.CAMERA;
@@ -61,7 +59,6 @@ public abstract class CameraActivity extends AppCompatActivity implements OnImag
 
     @Override
     protected void onCreate(final Bundle savedInstanceState) {
-        LOGGER.d("onCreate " + this);
         super.onCreate(null);
 
         Intent intent = getIntent();
@@ -69,7 +66,7 @@ public abstract class CameraActivity extends AppCompatActivity implements OnImag
 //        useFacing = intent.getIntExtra(KEY_USE_FACING, CameraCharacteristics.LENS_FACING_BACK);
 
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-        setContentView(R.layout.tfe_od_activity_camera);
+        setContentView(R.layout.activity_camera);
 
         if (hasPermission()) {
             setFragment();
@@ -97,7 +94,6 @@ public abstract class CameraActivity extends AppCompatActivity implements OnImag
     @Override
     public void onPreviewFrame(final byte[] bytes, final Camera camera) {
         if (isProcessingFrame) {
-            LOGGER.w("Dropping frame!");
             return;
         }
 
@@ -117,7 +113,7 @@ public abstract class CameraActivity extends AppCompatActivity implements OnImag
                 onPreviewSizeChosen(new Size(previewSize.width, previewSize.height), rotation);
             }
         } catch (final Exception e) {
-            LOGGER.e(e, "Exception!");
+            e.printStackTrace();
             return;
         }
 
@@ -202,8 +198,8 @@ public abstract class CameraActivity extends AppCompatActivity implements OnImag
                     };
 
             processImage();
-        } catch (final Exception e) {
-            LOGGER.e(e, "Exception!");
+        } catch (Exception e) {
+            e.printStackTrace();
             Trace.endSection();
             return;
         }
@@ -212,13 +208,11 @@ public abstract class CameraActivity extends AppCompatActivity implements OnImag
 
     @Override
     public synchronized void onStart() {
-        LOGGER.d("onStart " + this);
         super.onStart();
     }
 
     @Override
     public synchronized void onResume() {
-        LOGGER.d("onResume " + this);
         super.onResume();
 
         handlerThread = new HandlerThread("inference");
@@ -228,29 +222,24 @@ public abstract class CameraActivity extends AppCompatActivity implements OnImag
 
     @Override
     public synchronized void onPause() {
-        LOGGER.d("onPause " + this);
-
         handlerThread.quitSafely();
         try {
             handlerThread.join();
             handlerThread = null;
             handler = null;
         } catch (final InterruptedException e) {
-            LOGGER.e(e, "Exception!");
+            e.printStackTrace();
         }
-
         super.onPause();
     }
 
     @Override
     public synchronized void onStop() {
-        LOGGER.d("onStop " + this);
         super.onStop();
     }
 
     @Override
     public synchronized void onDestroy() {
-        LOGGER.d("onDestroy " + this);
         super.onDestroy();
     }
 
@@ -317,62 +306,35 @@ public abstract class CameraActivity extends AppCompatActivity implements OnImag
     }
 
     private String chooseCamera() {
-
         final CameraManager manager = (CameraManager) getSystemService(Context.CAMERA_SERVICE);
-
         try {
-
-
             for (final String cameraId : manager.getCameraIdList()) {
                 final CameraCharacteristics characteristics = manager.getCameraCharacteristics(cameraId);
-
-
                 final StreamConfigurationMap map =
                         characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
-
                 if (map == null) {
                     continue;
                 }
-
-                // Fallback to camera1 API for internal cameras that don't have full support.
-                // This should help with legacy situations where using the camera2 API causes
-                // distorted or otherwise broken previews.
-                //final int facing =
-                //(facing == CameraCharacteristics.LENS_FACING_EXTERNAL)
-//        if (!facing.equals(useFacing)) {
-//          continue;
-//        }
-
                 final Integer facing = characteristics.get(CameraCharacteristics.LENS_FACING);
-
                 if (useFacing != null &&
                         facing != null &&
                         !facing.equals(useFacing)
                 ) {
                     continue;
                 }
-
-
                 useCamera2API = (facing == CameraCharacteristics.LENS_FACING_EXTERNAL)
                         || isHardwareLevelSupported(
                         characteristics, CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_FULL);
-
-
-                LOGGER.i("Camera API lv2?: %s", useCamera2API);
                 return cameraId;
             }
         } catch (CameraAccessException e) {
-            LOGGER.e(e, "Not allowed to access camera");
+            e.printStackTrace();
         }
-
         return null;
     }
 
-
     protected void setFragment() {
-
         this.cameraId = chooseCamera();
-
         Fragment fragment;
         if (useCamera2API) {
             CameraConnectionFragment camera2Fragment =
@@ -391,9 +353,7 @@ public abstract class CameraActivity extends AppCompatActivity implements OnImag
 
             camera2Fragment.setCamera(cameraId);
             fragment = camera2Fragment;
-
         } else {
-
             int facing = (useFacing == CameraCharacteristics.LENS_FACING_BACK) ?
                     Camera.CameraInfo.CAMERA_FACING_BACK :
                     Camera.CameraInfo.CAMERA_FACING_FRONT;
@@ -401,9 +361,7 @@ public abstract class CameraActivity extends AppCompatActivity implements OnImag
                     getLayoutId(),
                     getDesiredPreviewFrameSize(), facing);
             fragment = frag;
-
         }
-
         getFragmentManager().beginTransaction().replace(R.id.container, fragment).commit();
     }
 
@@ -413,7 +371,6 @@ public abstract class CameraActivity extends AppCompatActivity implements OnImag
         for (int i = 0; i < planes.length; ++i) {
             final ByteBuffer buffer = planes[i].getBuffer();
             if (yuvBytes[i] == null) {
-                LOGGER.d("Initializing buffer %d at size %d", i, buffer.capacity());
                 yuvBytes[i] = new byte[buffer.capacity()];
             }
             buffer.get(yuvBytes[i]);

@@ -1,4 +1,4 @@
-package com.weefer.tensorflowlite.tracking;
+package com.weefer.tensorflowlite.recognition;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
@@ -16,14 +16,12 @@ import android.util.TypedValue;
 
 import com.weefer.tensorflowlite.env.BorderedText;
 import com.weefer.tensorflowlite.env.ImageUtils;
-import com.weefer.tensorflowlite.env.Logger;
-import com.weefer.tensorflowlite.model.Recognition;
 
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
 
-public class MultiBoxTracker {
+public class TrackerFace {
     private static final float TEXT_SIZE_DIP = 18;
     private static final float MIN_SIZE = 16.0f;
     private static final int[] COLORS = {
@@ -44,18 +42,16 @@ public class MultiBoxTracker {
             Color.parseColor("#0D0068")
     };
     final List<Pair<Float, RectF>> screenRects = new LinkedList<Pair<Float, RectF>>();
-    private final Logger logger = new Logger();
     private final Queue<Integer> availableColors = new LinkedList<Integer>();
     private final List<TrackedRecognition> trackedObjects = new LinkedList<TrackedRecognition>();
     private final Paint boxPaint = new Paint();
-    private final float textSizePx;
     private final BorderedText borderedText;
     private Matrix frameToCanvasMatrix;
     private int frameWidth;
     private int frameHeight;
     private int sensorOrientation;
 
-    public MultiBoxTracker(final Context context) {
+    public TrackerFace(final Context context) {
         for (final int color : COLORS) {
             availableColors.add(color);
         }
@@ -67,9 +63,8 @@ public class MultiBoxTracker {
         boxPaint.setStrokeJoin(Join.ROUND);
         boxPaint.setStrokeMiter(100);
 
-        textSizePx =
-                TypedValue.applyDimension(
-                        TypedValue.COMPLEX_UNIT_DIP, TEXT_SIZE_DIP, context.getResources().getDisplayMetrics());
+        float textSizePx = TypedValue.applyDimension(
+                TypedValue.COMPLEX_UNIT_DIP, TEXT_SIZE_DIP, context.getResources().getDisplayMetrics());
         borderedText = new BorderedText(textSizePx);
     }
 
@@ -98,8 +93,7 @@ public class MultiBoxTracker {
         }
     }
 
-    public synchronized void trackResults(final List<Recognition> results, final long timestamp) {
-        logger.i("Processing %d results from %d", results.size(), timestamp);
+    public synchronized void trackResults(final List<ModelFace> results, final long timestamp) {
         processResults(results);
     }
 
@@ -130,59 +124,46 @@ public class MultiBoxTracker {
             float cornerSize = Math.min(trackedPos.width(), trackedPos.height()) / 8.0f;
             canvas.drawRoundRect(trackedPos, cornerSize, cornerSize, boxPaint);
 
-
-//            @SuppressLint("DefaultLocale") final String strConfidence =
-//                    recognition.detectionConfidence < 0
-//                            ? ""
-//                            : String.format("%.2f", (recognition.detectionConfidence)) + "";
-
-            @SuppressLint("DefaultLocale") final String strConfidence = String.format("%.2f", (recognition.detectionConfidence)) + "";
+            @SuppressLint("DefaultLocale") final String strConfidence =
+                    recognition.detectionConfidence < 0
+                            ? ""
+                            : String.format("%.2f", (recognition.detectionConfidence)) + "";
 
             final String labelString =
                     !TextUtils.isEmpty(recognition.title)
                             ? String.format("%s %s", recognition.title, strConfidence)
-                            : strConfidence;
+                            : "Unknown";
 
             borderedText.drawText(
                     canvas, trackedPos.left + cornerSize, trackedPos.top, labelString, boxPaint);
         }
     }
 
-    private void processResults(final List<Recognition> results) {
-        final List<Pair<Float, Recognition>> rectsToTrack = new LinkedList<Pair<Float, Recognition>>();
+    private void processResults(final List<ModelFace> results) {
+        final List<Pair<Float, ModelFace>> rectsToTrack = new LinkedList<Pair<Float, ModelFace>>();
 
         screenRects.clear();
         final Matrix rgbFrameToScreen = new Matrix(getFrameToCanvasMatrix());
 
-        for (final Recognition result : results) {
+        for (final ModelFace result : results) {
             if (result.getLocation() == null) {
                 continue;
             }
             final RectF detectionFrameRect = new RectF(result.getLocation());
-
             final RectF detectionScreenRect = new RectF();
             rgbFrameToScreen.mapRect(detectionScreenRect, detectionFrameRect);
-
-            logger.v(
-                    "Result! Frame: " + result.getLocation() + " mapped to screen:" + detectionScreenRect);
-
             screenRects.add(new Pair<Float, RectF>(result.getDistance(), detectionScreenRect));
-
             if (detectionFrameRect.width() < MIN_SIZE || detectionFrameRect.height() < MIN_SIZE) {
-                logger.w("Degenerate rectangle! " + detectionFrameRect);
                 continue;
             }
-
-            rectsToTrack.add(new Pair<Float, Recognition>(result.getDistance(), result));
+            rectsToTrack.add(new Pair<Float, ModelFace>(result.getDistance(), result));
         }
-
         trackedObjects.clear();
         if (rectsToTrack.isEmpty()) {
-            logger.v("Nothing to track, aborting.");
             return;
         }
 
-        for (final Pair<Float, Recognition> potential : rectsToTrack) {
+        for (final Pair<Float, ModelFace> potential : rectsToTrack) {
             final TrackedRecognition trackedRecognition = new TrackedRecognition();
             trackedRecognition.detectionConfidence = potential.first;
             trackedRecognition.location = new RectF(potential.second.getLocation());
@@ -191,10 +172,8 @@ public class MultiBoxTracker {
                 trackedRecognition.color = potential.second.getColor();
             } else {
                 trackedRecognition.color = COLORS[trackedObjects.size()];
-
             }
             trackedObjects.add(trackedRecognition);
-
             if (trackedObjects.size() >= COLORS.length) {
                 break;
             }

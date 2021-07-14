@@ -1,9 +1,9 @@
-package com.weefer.tensorflowlite.model;
+package com.weefer.tensorflowlite.recognition;
 
 import android.graphics.Bitmap;
 import android.graphics.RectF;
 
-public class Recognition {
+public class ModelFace {
     private final String id;
     private final String title;
     private final Float distance;
@@ -12,7 +12,7 @@ public class Recognition {
     private Integer color;
     private Bitmap crop;
 
-    public Recognition(final String id, final String title, final Float distance, final RectF location) {
+    public ModelFace(final String id, final String title, final Float distance, final RectF location) {
         this.id = id;
         this.title = title;
         this.distance = distance;
@@ -68,7 +68,7 @@ public class Recognition {
 
     @Override
     public String toString() {
-        return "Recognition{" +
+        return "ModelRecognition{" +
                 "id='" + id + '\'' +
                 ", title='" + title + '\'' +
                 ", distance=" + distance +

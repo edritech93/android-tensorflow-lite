@@ -12,11 +12,4 @@
         android:layout_height="match_parent"
         tools:context="org.tensorflow.demo.CameraActivity" />
 
-    <ImageView
-        android:id="@+id/img_storage"
-        android:layout_width="100dp"
-        android:layout_height="100dp"
-        android:src="@mipmap/ic_launcher"
-        />
-
 </RelativeLayout>
