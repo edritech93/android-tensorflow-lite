@@ -1,4 +1,4 @@
-package com.weefer.tensorflowlite;
+package com.weefer.tensorflowlite.activity;
 
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.Config;
@@ -11,23 +11,22 @@ import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.hardware.camera2.CameraCharacteristics;
 import android.os.Bundle;
-import android.util.Log;
 import android.util.Size;
 import android.util.TypedValue;
-import android.widget.Toast;
 
 import com.google.mlkit.vision.common.InputImage;
 import com.google.mlkit.vision.face.Face;
 import com.google.mlkit.vision.face.FaceDetection;
 import com.google.mlkit.vision.face.FaceDetector;
 import com.google.mlkit.vision.face.FaceDetectorOptions;
+import com.weefer.tensorflowlite.R;
 import com.weefer.tensorflowlite.customview.OverlayView;
 import com.weefer.tensorflowlite.env.BorderedText;
 import com.weefer.tensorflowlite.env.ImageUtils;
-import com.weefer.tensorflowlite.model.Recognition;
-import com.weefer.tensorflowlite.tflite.SimilarityClassifier;
-import com.weefer.tensorflowlite.tflite.TFLiteObjectDetectionAPIModel;
-import com.weefer.tensorflowlite.tracking.MultiBoxTracker;
+import com.weefer.tensorflowlite.recognition.ModelFace;
+import com.weefer.tensorflowlite.recognition.TrackerFace;
+import com.weefer.tensorflowlite.recognition.InterfaceValidation;
+import com.weefer.tensorflowlite.recognition.ValidationFace;
 
 import java.io.IOException;
 import java.util.LinkedList;
@@ -46,8 +45,8 @@ public class DetectorActivity extends CameraActivity {
     private OverlayView trackingOverlay;
     private Integer sensorOrientation;
 
-    public static SimilarityClassifier detector;
-    public static List<Recognition> resultsUser;
+    public static InterfaceValidation detector;
+    public static List<ModelFace> resultsUser;
     private Bitmap rgbFrameBitmap = null;
     private Bitmap croppedBitmap = null;
 
@@ -57,11 +56,10 @@ public class DetectorActivity extends CameraActivity {
     private long timestamp = 0;
     private Matrix frameToCropTransform;
     private Matrix cropToFrameTransform;
-    private MultiBoxTracker tracker;
+    private TrackerFace tracker;
     private FaceDetector faceDetector;
     private Bitmap portraitBmp = null;
     private Bitmap faceBmp = null;
-    private AddImage addImage = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -73,7 +71,6 @@ public class DetectorActivity extends CameraActivity {
                         .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_NONE)
                         .build();
         faceDetector = FaceDetection.getClient(options);
-        addImage = new AddImage(this);
     }
 
     @Override
@@ -84,11 +81,11 @@ public class DetectorActivity extends CameraActivity {
         BorderedText borderedText = new BorderedText(textSizePx);
         borderedText.setTypeface(Typeface.MONOSPACE);
 
-        tracker = new MultiBoxTracker(this);
+        tracker = new TrackerFace(this);
 
         try {
             detector =
-                    TFLiteObjectDetectionAPIModel.create(
+                    ValidationFace.create(
                             getAssets(),
                             TF_OD_API_MODEL_FILE,
                             TF_OD_API_LABELS_FILE,
@@ -96,10 +93,6 @@ public class DetectorActivity extends CameraActivity {
                             TF_OD_API_IS_QUANTIZED);
         } catch (final IOException e) {
             e.printStackTrace();
-            Toast toast =
-                    Toast.makeText(
-                            getApplicationContext(), "Classifier could not be initialized", Toast.LENGTH_SHORT);
-            toast.show();
             finish();
         }
 
@@ -140,7 +133,6 @@ public class DetectorActivity extends CameraActivity {
             }
         });
         tracker.setFrameConfiguration(previewWidth, previewHeight, sensorOrientation);
-        addImage.addImageStorage();
     }
 
     @Override
@@ -179,7 +171,7 @@ public class DetectorActivity extends CameraActivity {
 
     @Override
     protected int getLayoutId() {
-        return R.layout.tfe_od_camera_connection_fragment_tracking;
+        return R.layout.fragment_tracking;
     }
 
     @Override
@@ -205,13 +197,13 @@ public class DetectorActivity extends CameraActivity {
         return matrix;
     }
 
-    private void updateResults(long currTimestamp, final List<Recognition> mappedRecognitions) {
-        tracker.trackResults(mappedRecognitions, currTimestamp);
+    private void updateResults(long currTimestamp, final List<ModelFace> mappedModelFaces) {
+        tracker.trackResults(mappedModelFaces, currTimestamp);
         trackingOverlay.postInvalidate();
         computingDetection = false;
 
-        if (mappedRecognitions.size() > 0) {
-            Recognition rec = mappedRecognitions.get(0);
+        if (mappedModelFaces.size() > 0) {
+            ModelFace rec = mappedModelFaces.get(0);
             if (rec.getExtra() != null) {
                 detector.register("User", rec);
             }
@@ -224,7 +216,7 @@ public class DetectorActivity extends CameraActivity {
         paint.setStyle(Style.STROKE);
         paint.setStrokeWidth(2.0f);
 
-        final List<Recognition> mappedRecognitions = new LinkedList<Recognition>();
+        final List<ModelFace> mappedModelFaces = new LinkedList<ModelFace>();
 
         int sourceW = rgbFrameBitmap.getWidth();
         int sourceH = rgbFrameBitmap.getHeight();
@@ -255,7 +247,7 @@ public class DetectorActivity extends CameraActivity {
 
                 String label = "";
                 float confidence = -1f;
-                Integer color = Color.BLUE;
+                int color = Color.RED;
                 Object extra = null;
                 Bitmap crop = null;
                 if (add) {
@@ -267,16 +259,16 @@ public class DetectorActivity extends CameraActivity {
                 }
                 resultsUser = detector.recognizeImage(faceBmp, add);
                 if (resultsUser.size() > 0) {
-                    Recognition result = resultsUser.get(0);
+                    ModelFace result = resultsUser.get(0);
                     extra = result.getExtra();
                     float conf = result.getDistance();
                     confidence = conf;
-                    if (conf < 1.0f) {
+                    if (conf < 0.9f) {
                         label = result.getTitle();
                         if (result.getId().equals("0")) {
                             color = Color.GREEN;
                         } else {
-                            color = Color.RED;
+                            color = Color.YELLOW;
                         }
                     }
                 }
@@ -290,15 +282,14 @@ public class DetectorActivity extends CameraActivity {
                     flip.mapRect(boundingBox);
                 }
 
-                final Recognition result = new Recognition(
-                        "0", label, confidence, boundingBox);
+                final ModelFace result = new ModelFace("0", label, confidence, boundingBox);
                 result.setColor(color);
                 result.setLocation(boundingBox);
                 result.setExtra(extra);
                 result.setCrop(crop);
-                mappedRecognitions.add(result);
+                mappedModelFaces.add(result);
             }
         }
-        updateResults(currTimestamp, mappedRecognitions);
+        updateResults(currTimestamp, mappedModelFaces);
     }
 }
