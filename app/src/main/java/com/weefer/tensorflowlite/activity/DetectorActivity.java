@@ -82,6 +82,8 @@ public class DetectorActivity extends CameraActivity {
         imageCapture = ACTIVITY_CAMERA.findViewById(R.id.image_capture);
         imageCapture.setOnClickListener(v -> {
             Log.e("imageCapture", "click");
+            Bitmap bitmapResult = Bitmap.createBitmap(portraitBmp);
+            //TODO: return bitmapResult to React Package
         });
 
         booleanCapture.setOnIntegerChangeListener(newValue -> {
