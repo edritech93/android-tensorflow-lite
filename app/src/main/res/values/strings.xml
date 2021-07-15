@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">Face Validation</string>
+    <string name="msg_capture">The capture image button will appear when used by the right user</string>
 </resources>

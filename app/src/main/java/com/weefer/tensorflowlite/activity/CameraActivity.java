@@ -1,6 +1,7 @@
 package com.weefer.tensorflowlite.activity;
 
 import android.Manifest;
+import android.app.Activity;
 import android.app.Fragment;
 import android.content.Context;
 import android.content.Intent;
@@ -48,6 +49,7 @@ public abstract class CameraActivity extends AppCompatActivity implements OnImag
     private int yRowStride;
     private Runnable postInferenceCallback;
     private Runnable imageConverter;
+    public Activity ACTIVITY_CAMERA;
 
     private static final String KEY_USE_FACING = "use_facing";
     private Integer useFacing = null;
@@ -73,6 +75,7 @@ public abstract class CameraActivity extends AppCompatActivity implements OnImag
         } else {
             requestPermission();
         }
+        ACTIVITY_CAMERA = this;
     }
 
     protected int[] getRgbBytes() {
@@ -121,22 +124,12 @@ public abstract class CameraActivity extends AppCompatActivity implements OnImag
         yuvBytes[0] = bytes;
         yRowStride = previewWidth;
 
-        imageConverter =
-                new Runnable() {
-                    @Override
-                    public void run() {
-                        ImageUtils.convertYUV420SPToARGB8888(bytes, previewWidth, previewHeight, rgbBytes);
-                    }
-                };
+        imageConverter = () -> ImageUtils.convertYUV420SPToARGB8888(bytes, previewWidth, previewHeight, rgbBytes);
 
-        postInferenceCallback =
-                new Runnable() {
-                    @Override
-                    public void run() {
-                        camera.addCallbackBuffer(bytes);
-                        isProcessingFrame = false;
-                    }
-                };
+        postInferenceCallback = () -> {
+            camera.addCallbackBuffer(bytes);
+            isProcessingFrame = false;
+        };
         processImage();
     }
 
@@ -171,32 +164,21 @@ public abstract class CameraActivity extends AppCompatActivity implements OnImag
             final int uvRowStride = planes[1].getRowStride();
             final int uvPixelStride = planes[1].getPixelStride();
 
-            imageConverter =
-                    new Runnable() {
-                        @Override
-                        public void run() {
-                            ImageUtils.convertYUV420ToARGB8888(
-                                    yuvBytes[0],
-                                    yuvBytes[1],
-                                    yuvBytes[2],
-                                    previewWidth,
-                                    previewHeight,
-                                    yRowStride,
-                                    uvRowStride,
-                                    uvPixelStride,
-                                    rgbBytes);
-                        }
-                    };
+            imageConverter = () -> ImageUtils.convertYUV420ToARGB8888(
+                    yuvBytes[0],
+                    yuvBytes[1],
+                    yuvBytes[2],
+                    previewWidth,
+                    previewHeight,
+                    yRowStride,
+                    uvRowStride,
+                    uvPixelStride,
+                    rgbBytes);
 
-            postInferenceCallback =
-                    new Runnable() {
-                        @Override
-                        public void run() {
-                            image.close();
-                            isProcessingFrame = false;
-                        }
-                    };
-
+            postInferenceCallback = () -> {
+                image.close();
+                isProcessingFrame = false;
+            };
             processImage();
         } catch (Exception e) {
             e.printStackTrace();
@@ -214,7 +196,6 @@ public abstract class CameraActivity extends AppCompatActivity implements OnImag
     @Override
     public synchronized void onResume() {
         super.onResume();
-
         handlerThread = new HandlerThread("inference");
         handlerThread.start();
         handler = new Handler(handlerThread.getLooper());
@@ -338,14 +319,10 @@ public abstract class CameraActivity extends AppCompatActivity implements OnImag
         Fragment fragment;
         if (useCamera2API) {
             CameraConnectionFragment camera2Fragment =
-                    CameraConnectionFragment.newInstance(
-                            new CameraConnectionFragment.ConnectionCallback() {
-                                @Override
-                                public void onPreviewSizeChosen(final Size size, final int rotation) {
-                                    previewHeight = size.getHeight();
-                                    previewWidth = size.getWidth();
-                                    CameraActivity.this.onPreviewSizeChosen(size, rotation);
-                                }
+                    CameraConnectionFragment.newInstance((size, rotation) -> {
+                                previewHeight = size.getHeight();
+                                previewWidth = size.getWidth();
+                                CameraActivity.this.onPreviewSizeChosen(size, rotation);
                             },
                             this,
                             getLayoutId(),

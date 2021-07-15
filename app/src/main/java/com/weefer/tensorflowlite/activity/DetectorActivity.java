@@ -11,8 +11,11 @@ import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.hardware.camera2.CameraCharacteristics;
 import android.os.Bundle;
+import android.util.Log;
 import android.util.Size;
 import android.util.TypedValue;
+import android.view.View;
+import android.widget.ImageView;
 
 import com.google.mlkit.vision.common.InputImage;
 import com.google.mlkit.vision.face.Face;
@@ -20,6 +23,8 @@ import com.google.mlkit.vision.face.FaceDetection;
 import com.google.mlkit.vision.face.FaceDetector;
 import com.google.mlkit.vision.face.FaceDetectorOptions;
 import com.weefer.tensorflowlite.R;
+import com.weefer.tensorflowlite.capture.ObservableBoolean;
+import com.weefer.tensorflowlite.capture.OnBooleanChangeListener;
 import com.weefer.tensorflowlite.customview.OverlayView;
 import com.weefer.tensorflowlite.env.BorderedText;
 import com.weefer.tensorflowlite.env.ImageUtils;
@@ -60,6 +65,8 @@ public class DetectorActivity extends CameraActivity {
     private FaceDetector faceDetector;
     private Bitmap portraitBmp = null;
     private Bitmap faceBmp = null;
+    private ImageView imageCapture;
+    private final ObservableBoolean booleanCapture = new ObservableBoolean();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -71,6 +78,21 @@ public class DetectorActivity extends CameraActivity {
                         .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_NONE)
                         .build();
         faceDetector = FaceDetection.getClient(options);
+
+        imageCapture = ACTIVITY_CAMERA.findViewById(R.id.image_capture);
+        imageCapture.setOnClickListener(v -> {
+            Log.e("imageCapture", "click");
+        });
+
+        booleanCapture.setOnIntegerChangeListener(newValue -> {
+            runOnUiThread(() -> {
+                if (newValue) {
+                    imageCapture.setVisibility(View.VISIBLE);
+                } else {
+                    imageCapture.setVisibility(View.INVISIBLE);
+                }
+            });
+        });
     }
 
     @Override
@@ -163,8 +185,8 @@ public class DetectorActivity extends CameraActivity {
                         return;
                     }
                     runInBackground(() -> {
-                            onFacesDetected(currTimestamp, faces, addPending);
-                            addPending = false;
+                        onFacesDetected(currTimestamp, faces, addPending);
+                        addPending = false;
                     });
                 });
     }
@@ -249,14 +271,7 @@ public class DetectorActivity extends CameraActivity {
                 float confidence = -1f;
                 int color = Color.RED;
                 Object extra = null;
-                Bitmap crop = null;
-                if (add) {
-                    crop = Bitmap.createBitmap(portraitBmp,
-                            (int) faceBB.left,
-                            (int) faceBB.top,
-                            (int) faceBB.width(),
-                            (int) faceBB.height());
-                }
+
                 resultsUser = detector.recognizeImage(faceBmp, add);
                 if (resultsUser.size() > 0) {
                     ModelFace result = resultsUser.get(0);
@@ -270,6 +285,9 @@ public class DetectorActivity extends CameraActivity {
                         } else {
                             color = Color.YELLOW;
                         }
+                        booleanCapture.set(true);
+                    } else {
+                        booleanCapture.set(false);
                     }
                 }
                 if (getCameraFacing() == CameraCharacteristics.LENS_FACING_FRONT) {
@@ -286,7 +304,6 @@ public class DetectorActivity extends CameraActivity {
                 result.setColor(color);
                 result.setLocation(boundingBox);
                 result.setExtra(extra);
-                result.setCrop(crop);
                 mappedModelFaces.add(result);
             }
         }
